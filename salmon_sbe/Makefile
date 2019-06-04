@@ -1,6 +1,6 @@
 include Makefile.inc
 
-TARGET = sendrecv_test
+TARGET = SSBE 
 
 OBJS = \
 misc/unusedvar.o \
