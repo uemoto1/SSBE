@@ -17,7 +17,7 @@ main.o
 	$(FC) -c -o $@ $^ $(FLAGS)
 
 $(TARGET): $(OBJS)
-	$(FC) -o $@ $^ $(FLAGS)
+	$(FC) -o $@ $^ $(FLAGS) $(LIBS)
 
 .PHONY: all clean 
 
