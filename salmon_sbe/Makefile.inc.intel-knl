@@ -1,0 +1,3 @@
+FC = mpiifort
+FLAGS =  -fpp -xMIC-AVX512 -qopenmp  -warn all  -DSALMON_USE_MPI -O3
+
