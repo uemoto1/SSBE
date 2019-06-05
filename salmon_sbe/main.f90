@@ -5,19 +5,19 @@ module sbe
 
 
     type s_sbe
-        ! k-points for real-time SBE calculation
+        !k-points for real-time SBE calculation
         integer :: nk, nb
         real(8), allocatable :: kvec(:, :), kweight(:)
     end type
 
 
     type s_sbe_gs
-        ! Lattice information
+        !Lattice information
         real(8) :: a_matrix(1:3, 1:3)
         real(8) :: b_matrix(1:3, 1:3)
         real(8) :: volume_cell, volume_bz
 
-        ! Ground state (GS) electronic system information
+        !Ground state (GS) electronic system information
         integer :: nk, nb, ne
         real(8), allocatable :: kvec(:, :), kweight(:)
         real(8), allocatable :: eigen(:, :)
@@ -27,8 +27,8 @@ module sbe
         real(8), allocatable :: d_matrix(:, :, :, :)
         real(8), allocatable :: rv_matrix(:, :, :)
 
-        ! k-space grid and geometry information
-        ! NOTE: prepred for uniformally distributed k-grid....
+        !k-space grid and geometry information
+        !NOTE: prepred for uniformally distributed k-grid....
         integer :: nkgrid(1:3)
         integer, allocatable :: iktbl_grid(:, :, :)
     end type
@@ -61,7 +61,7 @@ subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
     gs%a_matrix(1:3, 1) = a1(1:3)
     gs%a_matrix(1:3, 2) = a2(1:3)
     gs%a_matrix(1:3, 3) = a3(1:3)
-    ! Calculate b_matrix, volume_cell and volume_bz from a1..a3 vector.
+    !Calculate b_matrix, volume_cell and volume_bz from a1..a3 vector.
     call calc_lattice_info()
 
     allocate(gs%kvec(1:3, 1:nk))
@@ -74,19 +74,19 @@ subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
     allocate(gs%rv_matrix(1:nb, 1:nb, 1:nk))
     allocate(gs%iktbl_grid(1:nkgrid(1), 1:nkgrid(2), 1:nkgrid(3)))
     
-    ! Retrieve eigenenergies from 'SYSNAME_eigen.data':
+    !Retrieve eigenenergies from 'SYSNAME_eigen.data':
     call read_eigen_data()
-    ! Retrieve k-points from 'SYSNAME_k.data':
+    !Retrieve k-points from 'SYSNAME_k.data':
     call read_k_data()
-    ! Retrieve transition matrix from 'SYSNAME_tm.data':
+    !Retrieve transition matrix from 'SYSNAME_tm.data':
     call read_tm_data()
-    ! Calculate iktbl_grid for uniform (non-symmetric) k-grid:
+    !Calculate iktbl_grid for uniform (non-symmetric) k-grid:
     call create_uniform_iktbl_grid()
-    ! Calculate omega and d_matrix (neglecting diagonal part):
+    !Calculate omega and d_matrix (neglecting diagonal part):
     call create_omega_dmatrix()
 
-    ! Initial Occupation Number
-    gs%occup(1:(ne/2), :) = 2d0 !! Experimental !!
+    !Initial Occupation Number
+    gs%occup(1:(ne/2), :) = 2d0 !!Experimental !!
 
 contains
 
@@ -124,10 +124,10 @@ contains
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_eigen.data')
         do i=1, 3
-            read(fh, *) dummy ! Skip
+            read(fh, *) dummy !Skip
         end do
         do ik=1, nk
-            read(fh, *) dummy ! Skip
+            read(fh, *) dummy !Skip
             do ib=1, nb
                 read(fh) idummy, gs%eigen(ib, ik)
             end do
@@ -143,10 +143,10 @@ contains
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_k.data')
         do i=1, 8
-            read(fh, *) dummy ! Skip
+            read(fh, *) dummy !Skip
         end do
         do ik=1, nk
-            read(fh, *) dummy ! Skip
+            read(fh, *) dummy !Skip
             do ib=1, nb
                 read(fh) idummy, gs%kvec(1:3, ik), gs%kweight(ik)
             end do !ib
@@ -163,7 +163,7 @@ contains
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_tm.data')
         do i=1, 3
-            read(fh, *) dummy ! Skip
+            read(fh, *) dummy !Skip
         end do
         do ik=1, nk
             do ib=1, nb
@@ -204,7 +204,7 @@ contains
     
     subroutine create_uniform_iktbl_grid()
         implicit none
-        ! Based on GCEED's periodic system setup...
+        !Based on GCEED's periodic system setup...
         integer :: ik1, ik2, ik3, ik
 
         ik = 1
@@ -213,9 +213,9 @@ contains
                 do ik1=1, nkgrid(1)
                     gs%iktbl_grid(ik1, ik2, ik3) = ik
                     ik = ik + 1
-                end do ! ik1
-            end do ! ik2
-        end do ! ik3
+                end do !ik1
+            end do !ik2
+        end do !ik3
     end subroutine create_uniform_iktbl_grid
 
 
@@ -224,7 +224,7 @@ end subroutine init_sbe_gs
 
 
 
-! Calculate [H, rho] commutation:
+!Calculate [H, rho] commutation:
 subroutine calc_hrho(sbe, gs, E, Ac, rho, Hrho)
     implicit none
     type(s_sbe), intent(in)    :: sbe
@@ -236,10 +236,10 @@ subroutine calc_hrho(sbe, gs, E, Ac, rho, Hrho)
     !$omp parallel do default(shared) private(ik, ikAc_gs, idir)
     do ik=1, sbe%nk
         ikAc_gs = get_ik_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3))
-        ! hrho(k) = omega(k + A/c) * rho(k) 
+        !hrho(k) = omega(k + A/c) * rho(k) 
         hrho(:, :, ik) = gs%omega(:, :, ikAc_gs) * rho(:, :, ik)
-        ! hrho = hrho - E(t) * (d * rho - rho * d)
-        do idir=1, 3 ! 1:x, 2:y, 3:z
+        !hrho = hrho - E(t) * (d * rho - rho * d)
+        do idir=1, 3 !1:x, 2:y, 3:z
             call ZHEMM('L', 'U', nb, nb, nb, &
                 & dcmplx(-E(idir), 0d0), &
                 & gs%d_matrix(:, :, idir, ikAc_gs), nb, &
@@ -261,7 +261,7 @@ subroutine calc_current(sbe, gs, )
     integer :: ik
     real(8) :: jcur(1:3)
 
-    ! Local diagonal component
+    !Local diagonal component
     !$omp parallel do default(shared) private(ik, idir, ib, jb, kAc, ikAc_gs) reduction(+: jcur)
     do ik=1, sbe%nk
         ikAc_gs = get_ik_gs(gs, sbe%kvec(ik, 1:3) + Ac(1:3))
@@ -295,4 +295,6 @@ subroutine dt_evolve(sbe)
     call calc_hrho(sbe, gs, E, Ac, hrho3, hrho4)
     
 end subroutine
+end module
+
 
