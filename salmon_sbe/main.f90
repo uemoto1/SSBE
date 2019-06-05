@@ -1,16 +1,10 @@
 
-module sbe
-    use salmon_file, only: open_filehandle
+module SBE
     implicit none
 
 
     real(8), parameter :: pi = 3.141592653589793
 
-    type s_sbe
-        !k-points for real-time SBE calculation
-        integer :: nk, nb
-        real(8), allocatable :: kvec(:, :), kweight(:)
-    end type
 
 
     type s_sbe_gs
@@ -36,6 +30,15 @@ module sbe
     end type
 
 
+    type s_sbe
+        !k-points for real-time SBE calculation
+        integer :: nk, nb
+        real(8), allocatable :: kvec(:, :), kweight(:)
+    end type
+
+
+
+
 
 
 
@@ -44,6 +47,7 @@ contains
 
 
 subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
+    use salmon_file, only: open_filehandle
     implicit none
     type(s_sbe_gs), intent(inout) :: gs
     character(*), intent(in) :: sysname
@@ -83,7 +87,7 @@ subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
     !Calculate iktbl_grid for uniform (non-symmetric) k-grid:
     call create_uniform_iktbl_grid()
     !Calculate omega and d_matrix (neglecting diagonal part):
-    call create_omega_dmatrix()
+    call create_omega_d()
 
     !Initial Occupation Number
     gs%occup(1:(ne/2), :) = 2d0 !!Experimental!!
@@ -183,7 +187,7 @@ contains
     end subroutine read_tm_data
 
 
-    subroutine create_omega_dmatrix()
+    subroutine create_omega_d()
         implicit none
         integer :: ik, ib, jb
         real(8), parameter :: epsilon = 1d-3
@@ -203,12 +207,11 @@ contains
             end do
         end do
         !$omp end parallel do
-    end subroutine create_omega_dmatrix
+    end subroutine create_omega_d
 
     
     subroutine create_uniform_iktbl_grid()
         implicit none
-        !Based on GCEED's periodic system setup...
         integer :: ik1, ik2, ik3, ik
 
         ik = 1
@@ -224,6 +227,58 @@ contains
 
 
 end subroutine init_sbe_gs
+
+
+
+subroutine init_sbe(sbe, gs, nkgrid)
+    implicit none
+    type(s_sbe), intent(inout) :: sbe
+    type(s_sbe_gs), intent(in) :: gs
+    integer, intent(in) :: nkgrid(1:3)
+
+    integer :: nk, nb
+
+    nk = nkgrid(1) * nkgrid(2) * nkgrid(3)
+    nb = gs%nb
+
+    sbe%nk = nk
+    sbe%nb = nb
+
+    allocate(sbe%kvec(1:3, 1:nk))
+    allocate(sbe%kweight(1:nk))
+    
+    call create_uniform_kgrid()
+
+ contains
+
+    subroutine create_uniform_kgrid()
+        implicit none 
+        integer :: ik1, ik2, ik3, ik
+        real(8) :: b1(1:3), b2(1:3), b3(1:3)
+        real(8) :: h1, h2, h3
+        real(8) :: dh(1:3)
+
+        b1(1:3) = gs%b_matrix(1, 1:3)
+        b2(1:3) = gs%b_matrix(2, 1:3)
+        b3(1:3) = gs%b_matrix(3, 1:3)
+        dh(1:3) = 1d0 / nkgrid(1:3)
+
+        ik = 1
+        do ik3=1, nkgrid(3)
+            h3 = dh(3) * ik3 - 0.5
+            do ik2=1, nkgrid(2)
+                h2 = dh(2) * ik2 - 0.5
+                do ik1=1, nkgrid(1)
+                    h1 = dh(1) * ik1 - 0.5
+                    ! Uniformally sampled k-grid point:
+                    sbe%kvec(1:3, ik) = h1 * b1(1:3) + h2 * b2(1:3) + h3 * b3(1:3)
+                    sbe%kweight(ik) = (1d0 / nk)
+                    ik = ik + 1
+                end do
+            end do
+        end do
+    end subroutine
+end subroutine
 
 
 function get_ik_gs(gs, kvec) result(ik_gs)
@@ -288,9 +343,9 @@ subroutine calc_current(sbe, gs, rho, Ac)
     real(8) :: jcur(1:3)
 
     !Local diagonal component
-    !$omp parallel do default(shared) private(ik, idir, ib, jb, ikAc_gs) reduction(+: jcur)
+    !$omp parallel do default(shared) private(ik, ikAc_gs, idir, ib, jb) reduction(+: jcur)
     do ik=1, sbe%nk
-        ikAc_gs = get_ik_gs(gs, sbe%kvec(ik, 1:3) + Ac(1:3))
+        ikAc_gs = get_ik_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3))
         do idir=1, 3
             do ib=1, sbe%nb
                 do jb=1, sbe%nb
