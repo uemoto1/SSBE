@@ -60,9 +60,7 @@ subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
     gs%nb = nb
     gs%ne = ne
     gs%nkgrid(1:3) = nkgrid(1:3)
-    gs%a_matrix(1:3, 1) = a1(1:3)
-    gs%a_matrix(1:3, 2) = a2(1:3)
-    gs%a_matrix(1:3, 3) = a3(1:3)
+
     !Calculate b_matrix, volume_cell and volume_bz from a1..a3 vector.
     call calc_lattice_info()
 
@@ -111,6 +109,10 @@ contains
         b1(1:3) = (2d0 * pi / vol) * a23(1:3)
         b2(1:3) = (2d0 * pi / vol) * a31(1:3)
         b3(1:3) = (2d0 * pi / vol) * a12(1:3)
+        
+        gs%a_matrix(1:3, 1) = a1(1:3)
+        gs%a_matrix(1:3, 2) = a2(1:3)
+        gs%a_matrix(1:3, 3) = a3(1:3)    
         gs%b_matrix(1, 1:3) = b1(1:3)
         gs%b_matrix(2, 1:3) = b2(1:3)
         gs%b_matrix(3, 1:3) = b3(1:3)
