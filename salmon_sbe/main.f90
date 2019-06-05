@@ -5,7 +5,7 @@ module sbe
 
 
     type s_sbe
-        ! k-point 
+        ! k-points for real-time SBE calculation
         integer :: nk, nb
         real(8), allocatable :: kvec(:, :), kweight(:)
     end type
@@ -38,24 +38,10 @@ module sbe
 
 
 
-    contains
+contains
 
-! Calculate ground state k-point index (ik_gs) corresponding to a given k-vector:
-function get_ik_gs(gs, kvec) result(ik_gs) 
-    implicit none
-    type(s_sbe_gs), intent(in) :: gs
-    real(8), intent(in) :: kvec(3)
-    real(8) :: rka(3)    ! Reduced coordinate of k*a
-    integer :: ikgrid(3) ! Discretized 3D grid coordinate of k*a
-    integer :: ik_gs
-    real(8), parameter :: one_over_2pi = 0.5 / 3.141592653589793
-    rka = one_over_2pi * matmul(kvec, gs%a_matrix) + 0.5d0
-    ikgrid = (rka - floor(rka)) * gs%nkgrid
-    ik_gs = iktbl_grid(ik_grid(1), ik_grid(2), ik_grid(3))
-    return
-end function get_ik_gs
 
-subroutine init_gs_info(gs, sysname, directory, nkgrid, nb, ne)
+subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
     implicit none
     type(s_sbe_gs), intent(inout) :: gs
     character(*), intent(in) :: sysname
@@ -63,6 +49,7 @@ subroutine init_gs_info(gs, sysname, directory, nkgrid, nb, ne)
     integer, intent(in) :: nkgrid(1:3)
     integer, intent(in) :: nb
     integer, intent(in) :: ne
+    real(8), intent(in) :: a1(1:3), a2(1:3), a3(1:3)
     integer :: nk
 
     nk = nkgrid(1) * nkgrid(2) * nkgrid(3)
@@ -71,6 +58,11 @@ subroutine init_gs_info(gs, sysname, directory, nkgrid, nb, ne)
     gs%nb = nb
     gs%ne = ne
     gs%nkgrid(1:3) = nkgrid(1:3)
+    gs%a_matrix(1:3, 1) = a1(1:3)
+    gs%a_matrix(1:3, 2) = a2(1:3)
+    gs%a_matrix(1:3, 3) = a3(1:3)
+    ! Calculate b_matrix, volume_cell and volume_bz from a1..a3 vector.
+    call calc_lattice_info()
 
     allocate(gs%kvec(1:3, 1:nk))
     allocate(gs%kweight(1:nk))
@@ -97,6 +89,33 @@ subroutine init_gs_info(gs, sysname, directory, nkgrid, nb, ne)
     gs%occup(1:(ne/2), :) = 2d0 !! Experimental !!
 
 contains
+
+
+    subroutine calc_lattice_info()
+        implicit none
+        real(8) :: a12(1:3), a23(1:3), a31(1:3), vol
+        real(8) :: b1(1:3), b2(1:3), b3(1:3)
+
+        a12(1) = a1(2) * a2(3) - a1(3) * a2(2)
+        a12(2) = a1(3) * a2(1) - a1(1) * a2(3)
+        a12(3) = a1(1) * a2(2) - a1(2) * a2(1)
+        a23(1) = a2(2) * a3(3) - a2(3) * a3(2)
+        a23(2) = a2(3) * a3(1) - a2(1) * a3(3)
+        a23(3) = a2(1) * a3(2) - a2(2) * a3(1)
+        a31(1) = a3(2) * a1(3) - a3(3) * a1(2)
+        a31(2) = a3(3) * a1(1) - a3(1) * a1(3)
+        a31(3) = a3(1) * a1(2) - a3(2) * a1(1)
+        vol = dot_product(a12, a3)
+        b1(1:3) = (2d0 * pi / vol) * a23(1:3)
+        b2(1:3) = (2d0 * pi / vol) * a31(1:3)
+        b3(1:3) = (2d0 * pi / vol) * a12(1:3)
+        gs%b_matrix(1, 1:3) = b1(1:3)
+        gs%b_matrix(2, 1:3) = b2(1:3)
+        gs%b_matrix(3, 1:3) = b3(1:3)
+        gs%volume_cell = vol
+        gs%volume_bz = (2d0 * pi) ** 3 / vol
+    end subroutine calc_lattice_info
+
 
     subroutine read_eigen_data()
         implicit none
@@ -163,7 +182,7 @@ contains
     subroutine create_omega_dmatrix()
         implicit none
         integer :: ik, ib, jb
-        real(8), parameter :: epsilon = 1e-5
+        real(8), parameter :: epsilon = 1d-3
         complex(8), parameter :: zi = dcmplx(0d0, 1d0)
         !$omp parallel do default(shared) private(ik, ib, jb)
         do ik=1, nb
@@ -173,6 +192,8 @@ contains
                     if (epsilon < abs(gs%omega(ib, jb, ik))) then
                         gs%d_matrix(ib, jb, ik) = &
                             & zi * gs%pmatrix(ib, jb, ik) / gs%omega(ib, jb, ik)
+                    else
+                        gs%d_matrix(ib, jb, ik) = 0d0
                     end if
                 end do
             end do
@@ -181,23 +202,24 @@ contains
     end subroutine create_omega_dmatrix
 
     
-
-
     subroutine create_uniform_iktbl_grid()
         implicit none
         ! Based on GCEED's periodic system setup...
-        integer :: ik1, ik2, ik3, ikcount
+        integer :: ik1, ik2, ik3, ik
 
-        ikcount = 1
+        ik = 1
         do ik3=1, nkgrid(3)
             do ik2=1, nkgrid(2)
                 do ik1=1, nkgrid(1)
-                    gs%iktbl_grid(ik1, ik2, ik3) = ikcount
-                    ikcount = ikcount + 1
+                    gs%iktbl_grid(ik1, ik2, ik3) = ik
+                    ik = ik + 1
                 end do ! ik1
             end do ! ik2
         end do ! ik3
     end subroutine create_uniform_iktbl_grid
+
+
+end subroutine init_sbe_gs
 
 
 
@@ -273,37 +295,4 @@ subroutine dt_evolve(sbe)
     call calc_hrho(sbe, gs, E, Ac, hrho3, hrho4)
     
 end subroutine
-
-    
-
-program SSBE
-    implicit none
-    integer, parameter :: N = 5
-    integer :: i, j
-    complex(8) :: A(N, N), B(N, N), C(N, N)
-    complex(8), parameter :: z1 = dcmplx(1d0, 0d0)
-    complex(8), parameter :: zi = dcmplx(0d0, 1d0)
-    complex(8), parameter :: z0 = dcmplx(0d0, 0d0)
-
-    A = 0
-    B = 0
-    C = 0
-    do i=1, N
-        do j=1, N
-            A(i, j) = abs(i - j) * 1d0
-            if (i == j) then
-                B(i, j) = 1.0d0
-            end if
-        end do !j
-    end do !i
-
-
-    do i=1, N
-        do j=1, N
-            write(*, *) i, j, c(i, j)
-        end do
-    end do
-
-    stop
-end program SSBE
 
