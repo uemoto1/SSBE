@@ -4,6 +4,8 @@ module sbe
     implicit none
 
 
+    real(8), parameter :: pi = 3.141592653589793
+
     type s_sbe
         !k-points for real-time SBE calculation
         integer :: nk, nb
@@ -23,9 +25,9 @@ module sbe
         real(8), allocatable :: eigen(:, :)
         real(8), allocatable :: occup(:, :)
         real(8), allocatable :: omega(:, :, :)
-        real(8), allocatable :: p_matrix(:, :, :, :)
-        real(8), allocatable :: d_matrix(:, :, :, :)
-        real(8), allocatable :: rv_matrix(:, :, :)
+        complex(8), allocatable :: p_matrix(:, :, :, :)
+        complex(8), allocatable :: d_matrix(:, :, :, :)
+        complex(8), allocatable :: rv_matrix(:, :, :)
 
         !k-space grid and geometry information
         !NOTE: prepred for uniformally distributed k-grid....
@@ -86,7 +88,7 @@ subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
     call create_omega_dmatrix()
 
     !Initial Occupation Number
-    gs%occup(1:(ne/2), :) = 2d0 !!Experimental !!
+    gs%occup(1:(ne/2), :) = 2d0 !!Experimental!!
 
 contains
 
@@ -120,7 +122,7 @@ contains
     subroutine read_eigen_data()
         implicit none
         character(256) :: dummy
-        integer :: fh, ik, ib, idummy
+        integer :: fh, i, ik, ib, idummy
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_eigen.data')
         do i=1, 3
@@ -139,7 +141,7 @@ contains
     subroutine read_k_data()
         implicit none
         character(256) :: dummy
-        integer :: fh, ik, ib, idummy
+        integer :: fh, i, ik, ib, idummy
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_k.data')
         do i=1, 8
@@ -158,7 +160,7 @@ contains
     subroutine read_tm_data()
         implicit none
         character(256) :: dummy
-        integer :: fh, ik, ib, idummy
+        integer :: fh, i, ik, ib, jb, idummy
         real(8) :: tmp(1:6)
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_tm.data')
@@ -188,12 +190,12 @@ contains
         do ik=1, nb
             do ib=1, nb
                 do jb=1, nb
-                    gs%omega(ib, jb, ik) = gs%eigen(ib) - gs%eigen(jb)
+                    gs%omega(ib, jb, ik) = gs%eigen(ib, ik) - gs%eigen(jb, ik)
                     if (epsilon < abs(gs%omega(ib, jb, ik))) then
-                        gs%d_matrix(ib, jb, ik) = &
-                            & zi * gs%pmatrix(ib, jb, ik) / gs%omega(ib, jb, ik)
+                        gs%d_matrix(ib, jb, 1:3, ik) = &
+                            & zi * gs%p_matrix(ib, jb, 1:3, ik) / gs%omega(ib, jb, ik)
                     else
-                        gs%d_matrix(ib, jb, ik) = 0d0
+                        gs%d_matrix(ib, jb, 1:3, ik) = 0d0
                     end if
                 end do
             end do
@@ -222,16 +224,34 @@ contains
 end subroutine init_sbe_gs
 
 
+function get_ik_gs(gs, kvec) result(ik_gs)
+    implicit none
+    type(s_sbe_gs), intent(in) :: gs
+    real(8), intent(in) :: kvec(3)
+    real(8) :: rka(3)    ! Reduced coordinate of k*a
+    integer :: ikgrid(3) ! Discretized 3D grid coordinate of k*a
+    integer :: ik_gs
+
+    rka = (1d0 / (2d0 * pi)) * matmul(kvec, gs%a_matrix) + 0.5d0
+    ikgrid = (rka - floor(rka)) * gs%nkgrid
+    ik_gs = gs%iktbl_grid(ikgrid(1), ikgrid(2), ikgrid(3))
+    return
+end function get_ik_gs
+
+
+
 
 
 !Calculate [H, rho] commutation:
-subroutine calc_hrho(sbe, gs, E, Ac, rho, Hrho)
+subroutine calc_hrho(sbe, gs, E, Ac, rho, hrho)
     implicit none
     type(s_sbe), intent(in)    :: sbe
     type(s_sbe_gs), intent(in) :: gs
     real(8), intent(in)        :: E(3), Ac(3)
     complex(8), intent(in)     :: rho(sbe%nb, sbe%nb, sbe%nk)
     complex(8), intent(out)    :: hrho(sbe%nb, sbe%nb, sbe%nk)
+
+    integer :: ik, ikAc_gs, idir
 
     !$omp parallel do default(shared) private(ik, ikAc_gs, idir)
     do ik=1, sbe%nk
@@ -240,15 +260,15 @@ subroutine calc_hrho(sbe, gs, E, Ac, rho, Hrho)
         hrho(:, :, ik) = gs%omega(:, :, ikAc_gs) * rho(:, :, ik)
         !hrho = hrho - E(t) * (d * rho - rho * d)
         do idir=1, 3 !1:x, 2:y, 3:z
-            call ZHEMM('L', 'U', nb, nb, nb, &
+            call ZHEMM('L', 'U', sbe%nb, sbe%nb, sbe%nb, &
                 & dcmplx(-E(idir), 0d0), &
-                & gs%d_matrix(:, :, idir, ikAc_gs), nb, &
-                & rho(:, :, ik), nb, &
+                & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
+                & rho(:, :, ik), sbe%nb, &
                 & dcmplx(1d0, 0d0), hrho(:, :, ik))
-            call ZHEMM('L', 'U', nb, nb, nb, &
+            call ZHEMM('L', 'U', sbe%nb, sbe%nb, sbe%nb, &
                 & dcmplx(+E(idir), 0d0), &
-                & rho(:, :, ik), nb, &
-                & gs%d_matrix(:, :, idir, ikAc_gs), nb, &
+                & rho(:, :, ik), sbe%nb, &
+                & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
                 & dcmplx(1d0, 0d0), hrho(:, :, ik))
         end do !idir
     end do !ik
@@ -256,21 +276,26 @@ subroutine calc_hrho(sbe, gs, E, Ac, rho, Hrho)
 end subroutine calc_hrho
 
 
-subroutine calc_current(sbe, gs, )
+subroutine calc_current(sbe, gs, rho, Ac)
     implicit none
-    integer :: ik
+    type(s_sbe), intent(in) :: sbe
+    type(s_sbe_gs), intent(in) :: gs
+    complex(8), intent(in) :: rho(sbe%nb, sbe%nb, sbe%nk)
+    real(8), intent(in) :: Ac(1:3)
+    integer :: ik, ikAc_gs, idir, ib, jb
     real(8) :: jcur(1:3)
 
     !Local diagonal component
-    !$omp parallel do default(shared) private(ik, idir, ib, jb, kAc, ikAc_gs) reduction(+: jcur)
+    !$omp parallel do default(shared) private(ik, idir, ib, jb, ikAc_gs) reduction(+: jcur)
     do ik=1, sbe%nk
         ikAc_gs = get_ik_gs(gs, sbe%kvec(ik, 1:3) + Ac(1:3))
         do idir=1, 3
-            do ib=1, nb
-                do jb=1, nb
-                    jcur(idir) = jcur(idir) + real(gs%pmat(ib, jb, idir, ikAc_gs) * rho(jb, ib, ik))
+            do ib=1, sbe%nb
+                do jb=1, sbe%nb
+                    jcur(idir) = jcur(idir) + &
+                        & real(gs%p_matrix(ib, jb, idir, ikAc_gs) * rho(jb, ib, ik))
                 end do
-                jcur(idir) = jcur(idir) + gs%kvec(idir, ikAc_gs) * rho(ib, ib, ik)
+                jcur(idir) = jcur(idir) + gs%kvec(idir, ikAc_gs) * real(rho(ib, ib, ik))
             end do
         end do
     end do
@@ -280,9 +305,15 @@ subroutine calc_current(sbe, gs, )
 end subroutine calc_current
 
 
-subroutine dt_evolve(sbe)
+subroutine dt_evolve(sbe, gs, rho, dt, E, Ac)
     implicit none
-    type(s_sbe_info), intent(in) :: sbe
+    type(s_sbe), intent(in) :: sbe
+    type(s_sbe_gs), intent(in) :: gs
+    real(8), intent(in) :: E(1:3)
+    real(8), intent(in) :: Ac(1:3)
+    real(8), intent(in) :: dt
+    complex(8), intent(inout) :: rho(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
+
 
     complex(8) :: hrho1(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
     complex(8) :: hrho2(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
@@ -298,3 +329,12 @@ end subroutine
 end module
 
 
+
+
+program main
+
+    implicit none
+
+    stop
+
+end program 
