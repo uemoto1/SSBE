@@ -1,5 +1,6 @@
-
+! This file is automaticall created by input_parameter.py
 module input_parameter
+    use salmon_file, only: open_filehandle
     implicit none
 
     character(64) :: directory
@@ -33,10 +34,9 @@ contains
         fh = open_filehandle('.namelist.tmp')
         do while (.true.)
             read(*, '(a)', iostat=ret) tmp
-            if (ret < 0) exit ! End of File
-
-            tmp = trim(adjustl(tmp))
-            if (tmp(1:1) <> '!') write(fh, '(a)') tmp
+            if (ret < 0) exit ! End of file
+            tmp = adjustl(tmp)
+            if (tmp(1:1) .ne. '!') write(fh, '(a)') trim(tmp)
         end do
         rewind(fh); read(fh, nml=control)
         rewind(fh); read(fh, nml=kgrid)

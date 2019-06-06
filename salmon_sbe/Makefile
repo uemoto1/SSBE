@@ -9,16 +9,16 @@ parallel/salmon_communication.o \
 parallel/salmon_parallel.o \
 common/structures.o \
 common/pack_unpack.o \
+input_parameter.f90 \
 main.o
 
+$(TARGET): $(OBJS)
+	$(FC) -o $@ $^ $(FLAGS) $(LIBS)
 
 .SUFFIXES: .f90
 
 %.o: %.f90
 	$(FC) -c -o $@ $^ $(FLAGS)
-
-$(TARGET): $(OBJS)
-	$(FC) -o $@ $^ $(FLAGS) $(LIBS)
 
 .PHONY: all clean 
 
@@ -27,4 +27,5 @@ all: $(TARGET)
 clean:
 	rm $(TARGET) $(OBJS) *.mod
 
-
+input_parameter.f90: input_parameter.py
+	python input_parameter.py > $@
