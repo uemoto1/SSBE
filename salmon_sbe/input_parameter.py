@@ -103,7 +103,7 @@ for group in sorted(input_parameter.keys()):
         default_variable += "{NAME} = {VALUE}\n".format(
             NAME=name, VALUE=f90val(default)
         )
-        var_dump += """write(*, '("# {NAME}=",99({F90FMT},1x))') {NAME}\n""".format(
+        var_dump += """write(*, '("# {NAME} =",99(1x,{F90FMT}))') {NAME}\n""".format(
             NAME=name, F90FMT=f90fmt(f90type)
         )
         

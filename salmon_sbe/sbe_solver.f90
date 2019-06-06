@@ -132,6 +132,7 @@ contains
         fh = open_filehandle(trim(directory) // trim(sysname) // '_eigen.data', 'old')
         do i=1, 3
             read(fh, *) dummy !Skip
+            write(*, *) dummy
         end do
         do ik=1, nk
             read(fh, *) dummy !Skip
