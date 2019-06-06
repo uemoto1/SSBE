@@ -58,13 +58,13 @@ contains
 
         directory = './'
         sysname = 'untitled'
-        dt = 0.01
+        dt = 0.05
         nt = 1000
         omega1 = 0.056985294117647065
         epdir_re1 = (/0.0, 0.0, 1.0/)
         phi_cep1 = 0.0
         rlaser_int_wcm2_1 = 10000000000.0
-        pulse_tw1 = 0.24183796856106407
+        pulse_tw1 = 413.5
         al_vec3 = 0.0
         al_vec2 = 0.0
         al_vec1 = 0.0

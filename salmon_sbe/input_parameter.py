@@ -22,7 +22,7 @@ input_parameter = {
         'gamma_dielec': ['real(8)',         [],     0.01],
     },
     'tgrid': {
-        'dt':           ['real(8)',         [],     0.01],
+        'dt':           ['real(8)',         [],     0.05],
         'nt':           ['integer',         [],     1000],
     },
     'emfield': {
@@ -33,6 +33,9 @@ input_parameter = {
         'phi_cep1':          ['real(8)',    [],     0.00],
     },
 }
+
+
+
 
 
 
