@@ -192,7 +192,6 @@ contains
             do ib=1, nb
                 do jb=1, nb
                     gs%omega(ib, jb, ik) = gs%eigen(ib, ik) - gs%eigen(jb, ik)
-                    ! write(*, *) ib, jb, gs%omega(ib, jb, ik), "#OMEGA"
                     if (epsilon < abs(gs%omega(ib, jb, ik))) then
                         gs%d_matrix(ib, jb, 1:3, ik) = &
                             & zi * gs%p_matrix(ib, jb, 1:3, ik) / gs%omega(ib, jb, ik)
@@ -260,11 +259,11 @@ subroutine init_sbe(sbe, gs, nkgrid)
 
         ik = 1
         do ik3=1, nkgrid(3)
-            h3 = dh(3) * ik3 - 0.5
+            h3 = dh(3) * (ik3 - 0.5d0) - 0.5d0
             do ik2=1, nkgrid(2)
-                h2 = dh(2) * ik2 - 0.5
+                h2 = dh(2) * (ik2 - 0.5d0) - 0.5d0
                 do ik1=1, nkgrid(1)
-                    h1 = dh(1) * ik1 - 0.5
+                    h1 = dh(1) * (ik1 - 0.5d0) - 0.5d0
                     ! Uniformally sampled k-grid point:
                     sbe%kvec(1:3, ik) = h1 * b1(1:3) + h2 * b2(1:3) + h3 * b3(1:3)
                     sbe%kweight(ik) = (1d0 / nk)
@@ -285,7 +284,7 @@ function get_ik_gs(gs, kvec) result(ik_gs)
     integer :: ik_gs
 
     rka = (1d0 / (2d0 * pi)) * matmul(kvec, gs%a_matrix) + 0.5d0
-    ikgrid = (rka - floor(rka)) * gs%nkgrid
+    ikgrid = ceiling((rka - floor(rka)) * gs%nkgrid)
     ik_gs = gs%iktbl_grid(ikgrid(1), ikgrid(2), ikgrid(3))
     return
 end function get_ik_gs
@@ -305,23 +304,24 @@ subroutine calc_hrho(sbe, gs, E, Ac, rho, hrho)
 
     integer :: ik, ikAc_gs, idir
 
+
     !$omp parallel do default(shared) private(ik, ikAc_gs, idir)
     do ik=1, sbe%nk
         ikAc_gs = get_ik_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3))
         !hrho(k) = omega(k + A/c) * rho(k) 
-        hrho(:, :, ik) = gs%omega(:, :, ikAc_gs) * rho(:, :, ik)
+        hrho(:, :, ik) = gs%omega(1:sbe%nb, 1:sbe%nb, ikAc_gs) * rho(:, :, ik)
         !hrho = hrho - E(t) * (d * rho - rho * d)
         do idir=1, 3 !1:x, 2:y, 3:z
-            call ZHEMM('L', 'U', sbe%nb, sbe%nb, sbe%nb, &
-                & dcmplx(-E(idir), 0d0), &
-                & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
-                & rho(:, :, ik), sbe%nb, &
-                & dcmplx(1d0, 0d0), hrho(:, :, ik))
-            call ZHEMM('L', 'U', sbe%nb, sbe%nb, sbe%nb, &
-                & dcmplx(+E(idir), 0d0), &
-                & rho(:, :, ik), sbe%nb, &
-                & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
-                & dcmplx(1d0, 0d0), hrho(:, :, ik))
+            ! call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
+            !     & dcmplx(-E(idir), 0d0), &
+            !     & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
+            !     & rho(:, :, ik), sbe%nb, &
+            !     & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
+            ! call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
+            !     & dcmplx(+E(idir), 0d0), &
+            !     & rho(:, :, ik), sbe%nb, &
+            !     & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
+            !     & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
         end do !idir
     end do !ik
     !$omp end parallel do
@@ -357,7 +357,7 @@ subroutine calc_current(sbe, gs, rho, Ac)
 end subroutine calc_current
 
 
-subroutine dt_evolve(sbe, gs, rho, dt, E, Ac)
+subroutine dt_evolve(sbe, gs, dt, E, Ac, rho)
     implicit none
     type(s_sbe), intent(in) :: sbe
     type(s_sbe_gs), intent(in) :: gs
@@ -365,7 +365,7 @@ subroutine dt_evolve(sbe, gs, rho, dt, E, Ac)
     real(8), intent(in) :: Ac(1:3)
     real(8), intent(in) :: dt
     complex(8), intent(inout) :: rho(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
-
+    complex(8), parameter :: zi = dcmplx(0d0, 1d0)
 
     complex(8) :: hrho1(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
     complex(8) :: hrho2(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
@@ -376,8 +376,35 @@ subroutine dt_evolve(sbe, gs, rho, dt, E, Ac)
     call calc_hrho(sbe, gs, E, Ac, hrho1, hrho2)
     call calc_hrho(sbe, gs, E, Ac, hrho2, hrho3)
     call calc_hrho(sbe, gs, E, Ac, hrho3, hrho4)
-    
+
+    rho = rho + hrho1 * (zi * dt)
+    rho = rho + hrho2 * (zi * dt) ** 2 * (1d0 / 2d0)
+    rho = rho + hrho3 * (zi * dt) ** 3 * (1d0 / 6d0)
+    rho = rho + hrho4 * (zi * dt) ** 4 * (1d0 / 24d0)
+    return
 end subroutine
+
+function calc_total_elec(sbe, gs, rho) result(rtot)
+    implicit none
+    type(s_sbe), intent(in) :: sbe
+    type(s_sbe_gs), intent(in) :: gs
+    complex(8), intent(in) :: rho(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
+    complex(8), parameter :: zi = dcmplx(0d0, 1d0)
+    integer :: ik, ib
+    real(8) :: rtot
+    rtot = 0d0
+    !$omp parallel do default(shared) private(ik, ib) reduction(+:rtot) collapse(2) 
+    do ik = 1, sbe%nk
+        do ib = 1, sbe%nb
+            rtot = rtot + real(rho(ib, ib, ik)) * sbe%kweight(ik)
+        end do
+    end do
+    !$omp end parallel do
+    rtot = rtot / sum(sbe%kweight)
+    return 
+end function calc_total_elec
+
+
 end module
 
 

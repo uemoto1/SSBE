@@ -2,8 +2,8 @@
 
 input_parameter = {
     'control': {
-        'sysname':      ['character(64)',   [],     "./"],
-        'directory':    ['character(64)',   [],     ""],
+        'sysname':      ['character(64)',   [],     ""],
+        'directory':    ['character(64)',   [],     "./"],
     },
     'system': {
         'al_vec1':      ['real(8)',         [3],    0.],
@@ -14,6 +14,12 @@ input_parameter = {
     },
     'kgrid': {
         'num_kgrid':    ['integer',         [3],    0],
+    },
+    'analysis': {
+        'e_min_dielec': ['real(8)',         [],     0.],
+        'e_max_dielec': ['real(8)',         [],     1.],
+        'n_dielec':     ['integer',         [],     1000],
+        'gamma_dielec': ['real(8)',         [],     0.01],
     },
 }
 
