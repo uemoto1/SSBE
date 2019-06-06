@@ -11,6 +11,7 @@ common/structures.o \
 common/pack_unpack.o \
 sbe_solver.o \
 input_parameter.o \
+test.o \
 main.o
 
 $(TARGET): $(OBJS)

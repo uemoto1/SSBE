@@ -2,7 +2,7 @@
 
 input_parameter = {
     'control': {
-        'sysname':      ['character(64)',   [],     ""],
+        'sysname':      ['character(64)',   [],     "./"],
         'directory':    ['character(64)',   [],     ""],
     },
     'system': {
@@ -77,9 +77,9 @@ def f90fmt(f90type):
     if "character" in f90type:
         return "a"
     elif "integer" in f90type:
-        return "i9.9"
+        return "i7"
     elif "real" in f90type:
-        return "f12.5"
+        return "f7.3"
     else:
         raise TypeError
 

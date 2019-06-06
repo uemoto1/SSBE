@@ -3,6 +3,7 @@ program main
     use sbe_solver
     use input_parameter
     implicit none
+    integer :: ik
 
     type(s_sbe) :: sbe
     type(s_sbe_gs) :: gs
@@ -14,6 +15,8 @@ program main
         & al_vec1, al_vec2, al_vec3)
 
     call init_sbe(sbe, gs, num_kgrid)
-        
+    
+    call test01(sbe, gs)
+
     stop
 end program 

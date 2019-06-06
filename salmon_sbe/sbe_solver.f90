@@ -138,7 +138,6 @@ contains
             do ib=1, nb
                 read(fh, *) idummy, gs%eigen(ib, ik)
             end do
-            write(*, *) ik, ib, gs%eigen(ib, ik)
         end do
         close(fh)
     end subroutine read_eigen_data
@@ -152,14 +151,9 @@ contains
         fh = open_filehandle(trim(directory) // trim(sysname) // '_k.data', 'old')
         do i=1, 8
             read(fh, '(a)') dummy !Skip
-            write(*, *) "skip", i, dummy
         end do
         do ik=1, nk
-            read(fh, '(a)') dummy !Skip
-            write(*, *) "skip", ik, dummy
-            do ib=1, nb
-                read(fh, *) idummy, gs%kvec(1:3, ik), gs%kweight(ik)
-            end do !ib
+            read(fh, *) idummy, gs%kvec(1:3, ik), gs%kweight(ik)
         end do !ik
         close(fh)
     end subroutine read_k_data
@@ -192,9 +186,8 @@ contains
     subroutine create_omega_d()
         implicit none
         integer :: ik, ib, jb
-        real(8), parameter :: epsilon = 1d-3
+        real(8), parameter :: epsilon = 1d-4
         complex(8), parameter :: zi = dcmplx(0d0, 1d0)
-        !$omp parallel do default(shared) private(ik, ib, jb)
         do ik=1, nb
             do ib=1, nb
                 do jb=1, nb
@@ -208,7 +201,6 @@ contains
                 end do
             end do
         end do
-        !$omp end parallel do
     end subroutine create_omega_d
 
     

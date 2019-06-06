@@ -6,11 +6,11 @@ module input_parameter
     character(64) :: directory
     character(64) :: sysname
     integer :: num_kgrid(1:3)
-    real(8) :: al_vec1(1:3)
-    real(8) :: al_vec2(1:3)
     real(8) :: al_vec3(1:3)
-    integer :: nelec
+    real(8) :: al_vec2(1:3)
+    real(8) :: al_vec1(1:3)
     integer :: nstate
+    integer :: nelec
 
 contains
 
@@ -25,20 +25,20 @@ contains
         namelist/kgrid/ &
         & num_kgrid
         namelist/system/ &
-        & al_vec1, &
-        & al_vec2, &
         & al_vec3, &
-        & nelec, &
-        & nstate
+        & al_vec2, &
+        & al_vec1, &
+        & nstate, &
+        & nelec
 
         directory = ''
-        sysname = ''
+        sysname = './'
         num_kgrid = 0
-        al_vec1 = 0.0
-        al_vec2 = 0.0
         al_vec3 = 0.0
-        nelec = 0
+        al_vec2 = 0.0
+        al_vec1 = 0.0
         nstate = 0
+        nelec = 0
 
         fh = open_filehandle('.namelist.tmp')
         do while (.true.)
@@ -53,14 +53,14 @@ contains
 
         close(fh)
 
-        write(*, '("# directory=",99(a,1x))') directory
-        write(*, '("# sysname=",99(a,1x))') sysname
-        write(*, '("# num_kgrid=",99(i9.9,1x))') num_kgrid
-        write(*, '("# al_vec1=",99(f12.5,1x))') al_vec1
-        write(*, '("# al_vec2=",99(f12.5,1x))') al_vec2
-        write(*, '("# al_vec3=",99(f12.5,1x))') al_vec3
-        write(*, '("# nelec=",99(i9.9,1x))') nelec
-        write(*, '("# nstate=",99(i9.9,1x))') nstate
+        write(*, '("# directory =",99(1x,a))') directory
+        write(*, '("# sysname =",99(1x,a))') sysname
+        write(*, '("# num_kgrid =",99(1x,i7))') num_kgrid
+        write(*, '("# al_vec3 =",99(1x,f7.3))') al_vec3
+        write(*, '("# al_vec2 =",99(1x,f7.3))') al_vec2
+        write(*, '("# al_vec1 =",99(1x,f7.3))') al_vec1
+        write(*, '("# nstate =",99(1x,i7))') nstate
+        write(*, '("# nelec =",99(1x,i7))') nelec
     end subroutine read_input
 end module input_parameter
 
