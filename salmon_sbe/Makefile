@@ -10,6 +10,7 @@ parallel/salmon_parallel.o \
 common/structures.o \
 common/pack_unpack.o \
 input_parameter.f90 \
+sbe.o \
 main.o
 
 $(TARGET): $(OBJS)

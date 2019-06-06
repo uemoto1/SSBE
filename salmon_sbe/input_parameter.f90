@@ -1,14 +1,14 @@
-! This file is automaticall created by input_parameter.py
+! This file is automatically created by input_parameter.py
 module input_parameter
     use salmon_file, only: open_filehandle
     implicit none
 
     character(64) :: directory
     character(64) :: sysname
-    integer :: num_kgrid(3)
-    real(8) :: al_vec1(3)
-    real(8) :: al_vec2(3)
-    real(8) :: al_vec3(3)
+    integer :: num_kgrid(1:3)
+    real(8) :: al_vec1(1:3)
+    real(8) :: al_vec2(1:3)
+    real(8) :: al_vec3(1:3)
     integer :: nelec
     integer :: nstate
 
@@ -31,6 +31,15 @@ contains
         & nelec, &
         & nstate
 
+        directory = ''
+        sysname = ''
+        num_kgrid = 0
+        al_vec1 = 0.0
+        al_vec2 = 0.0
+        al_vec3 = 0.0
+        nelec = 0
+        nstate = 0
+
         fh = open_filehandle('.namelist.tmp')
         do while (.true.)
             read(*, '(a)', iostat=ret) tmp
@@ -42,6 +51,7 @@ contains
         rewind(fh); read(fh, nml=kgrid)
         rewind(fh); read(fh, nml=system)
         close(fh)
+
     end subroutine read_input
 end module input_parameter
 
