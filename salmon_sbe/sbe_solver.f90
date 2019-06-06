@@ -11,7 +11,7 @@ module sbe_solver
         !Lattice information
         real(8) :: a_matrix(1:3, 1:3)
         real(8) :: b_matrix(1:3, 1:3)
-        real(8) :: volume_cell, volume_bz
+        real(8) :: volume
 
         !Ground state (GS) electronic system information
         integer :: nk, nb, ne
@@ -120,8 +120,7 @@ contains
         gs%b_matrix(1, 1:3) = b1(1:3)
         gs%b_matrix(2, 1:3) = b2(1:3)
         gs%b_matrix(3, 1:3) = b3(1:3)
-        gs%volume_cell = vol
-        gs%volume_bz = (2d0 * pi) ** 3 / vol
+        gs%volume = vol
     end subroutine calc_lattice_info
 
 
@@ -129,6 +128,9 @@ contains
         implicit none
         character(256) :: dummy
         integer :: fh, i, ik, ib, idummy
+
+        write(*,*) "sys", sysname
+        write(*,*) "dir", directory
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_eigen.data')
         do i=1, 3
