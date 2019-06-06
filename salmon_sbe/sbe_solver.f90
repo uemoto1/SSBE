@@ -132,9 +132,11 @@ contains
         fh = open_filehandle(trim(directory) // trim(sysname) // '_eigen.data', 'old')
         do i=1, 3
             read(fh, '(a)') dummy !Skip
+            write(*, *) "skip", dummy
         end do
         do ik=1, nk
             read(fh, '(a)') dummy !Skip
+            write(*, *) "skip", dummy
             do ib=1, nb
                 read(fh) idummy, gs%eigen(ib, ik)
             end do
