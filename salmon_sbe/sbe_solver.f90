@@ -140,6 +140,7 @@ contains
             do ib=1, nb
                 read(fh) idummy, gs%eigen(ib, ik)
             end do
+            write(*,*) ik, ib, gs%eigen(ib, ik)
         end do
         close(fh)
     end subroutine read_eigen_data
