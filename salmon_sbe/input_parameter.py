@@ -29,7 +29,7 @@ input_parameter = {
         'epdir_re1':         ['real(8)',    [3],    [0.0, 0.0, 1.0]],
         'rlaser_int_wcm2_1': ['real(8)',    [],     1e10],
         'omega1':            ['real(8)',    [],     1.55 / 13.6 / 2],
-        'pulse_tw1':         ['real(8)',    [],     10.0 / 41.35],
+        'pulse_tw1':         ['real(8)',    [],     10.0 * 41.35],
         'phi_cep1':          ['real(8)',    [],     0.00],
     },
 }
