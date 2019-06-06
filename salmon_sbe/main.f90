@@ -16,9 +16,9 @@ program main
         & num_kgrid, nstate, nelec, &
         & al_vec1, al_vec2, al_vec3)
 
-    call init_sbe(sbe, gs, num_kgrid)
+    call init_sbe(sbe, gs, num_kgrid, nt, dt)
 
-    ! Export dielectric spectra
+    ! Export dielectric spectra to SYSNAME_dielec.data
     call calc_dielec(trim(directory) // trim(sysname) // '_dielec.data', &
         & gs, e_min_dielec, e_max_dielec, n_dielec, gamma_dielec)
 
@@ -28,10 +28,10 @@ program main
         rho(ib, ib, :) = gs%occup(ib, 1) ! Experimental
     end do
 
-    do it = 1, 100
+    do it = 1, sbe%nt
         E = 0d0
         Ac = 0d0
-        call dt_evolve(sbe, gs, 1d-2, E, Ac, rho)
+        call dt_evolve(sbe, gs, E, Ac, rho)
         write(*,*) calc_total_elec(sbe, gs, rho, sbe%nb/2)
     end do
 

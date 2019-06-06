@@ -4,6 +4,7 @@ TARGET = SSBE
 
 OBJS = \
 misc/unusedvar.o \
+math/salmon_math.o \
 io/salmon_file.o \
 parallel/salmon_communication.o \
 parallel/salmon_parallel.o \

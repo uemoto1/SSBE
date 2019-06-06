@@ -1,9 +1,8 @@
 
 module sbe_solver
+    use salmon_math, only: pi
     implicit none
 
-
-    real(8), parameter :: pi = 3.141592653589793
 
 
 
@@ -32,7 +31,8 @@ module sbe_solver
 
     type s_sbe
         !k-points for real-time SBE calculation
-        integer :: nk, nb
+        integer :: nk, nb, nt
+        real(8) :: dt
         real(8), allocatable :: kvec(:, :), kweight(:)
     end type
 
@@ -146,7 +146,7 @@ contains
     subroutine read_k_data()
         implicit none
         character(256) :: dummy
-        integer :: fh, i, ik, ib, idummy
+        integer :: fh, i, ik, idummy
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_k.data', 'old')
         do i=1, 8
@@ -207,7 +207,6 @@ contains
     subroutine create_uniform_iktbl_grid()
         implicit none
         integer :: ik1, ik2, ik3, ik
-
         ik = 1
         do ik3=1, nkgrid(3)
             do ik2=1, nkgrid(2)
@@ -224,11 +223,13 @@ end subroutine init_sbe_gs
 
 
 
-subroutine init_sbe(sbe, gs, nkgrid)
+subroutine init_sbe(sbe, gs, nkgrid, nt, dt)
     implicit none
     type(s_sbe), intent(inout) :: sbe
     type(s_sbe_gs), intent(in) :: gs
     integer, intent(in) :: nkgrid(1:3)
+    integer, intent(in) :: nt
+    real(8), intent(in) :: dt
 
     integer :: nk, nb
 
@@ -237,6 +238,8 @@ subroutine init_sbe(sbe, gs, nkgrid)
 
     sbe%nk = nk
     sbe%nb = nb
+    sbe%nt = nt
+    sbe%dt = dt
 
     allocate(sbe%kvec(1:3, 1:nk))
     allocate(sbe%kweight(1:nk))
@@ -357,13 +360,12 @@ subroutine calc_current(sbe, gs, rho, Ac)
 end subroutine calc_current
 
 
-subroutine dt_evolve(sbe, gs, dt, E, Ac, rho)
+subroutine dt_evolve(sbe, gs, E, Ac, rho)
     implicit none
     type(s_sbe), intent(in) :: sbe
     type(s_sbe_gs), intent(in) :: gs
     real(8), intent(in) :: E(1:3)
     real(8), intent(in) :: Ac(1:3)
-    real(8), intent(in) :: dt
     complex(8), intent(inout) :: rho(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
     complex(8), parameter :: zi = dcmplx(0d0, 1d0)
 
@@ -377,10 +379,10 @@ subroutine dt_evolve(sbe, gs, dt, E, Ac, rho)
     call calc_hrho(sbe, gs, E, Ac, hrho2, hrho3)
     call calc_hrho(sbe, gs, E, Ac, hrho3, hrho4)
 
-    rho = rho + hrho1 * (zi * dt)
-    rho = rho + hrho2 * (zi * dt) ** 2 * (1d0 / 2d0)
-    rho = rho + hrho3 * (zi * dt) ** 3 * (1d0 / 6d0)
-    rho = rho + hrho4 * (zi * dt) ** 4 * (1d0 / 24d0)
+    rho = rho + hrho1 * (zi * sbe%dt)
+    rho = rho + hrho2 * (zi * sbe%dt) ** 2 * (1d0 / 2d0)
+    rho = rho + hrho3 * (zi * sbe%dt) ** 3 * (1d0 / 6d0)
+    rho = rho + hrho4 * (zi * sbe%dt) ** 4 * (1d0 / 24d0)
     return
 end subroutine
 
