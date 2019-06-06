@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python
 
 input_parameter = {
     'control': {
@@ -6,8 +6,8 @@ input_parameter = {
         'directory':    ['character(64)',   [],     ""],
     },
     'system': {
-        'al_vec2':      ['real(8)',         [3],    0.],
         'al_vec1':      ['real(8)',         [3],    0.],
+        'al_vec2':      ['real(8)',         [3],    0.],
         'al_vec3':      ['real(8)',         [3],    0.],
         'nstate':       ['integer',         [],     0],
         'nelec':        ['integer',         [],     0],
@@ -57,6 +57,10 @@ contains
 end module input_parameter
 """
 
+
+
+
+
 def indent(text, depth=0):
     return "\n".join([" " * depth + line for line in text.splitlines()])
 
@@ -86,16 +90,16 @@ def_namelist = ""
 default_variable = ""
 var_dump = ""
 
-for group in sorted(input_parameter.keys()):
+for group in input_parameter:
     def_namelist += "namelist/{GROUP}/ &\n& {VARLIST}\n".format(
         GROUP=group,
-        VARLIST=", &\n& ".join(sorted(input_parameter[group].keys()))    
+        VARLIST=", &\n& ".join(input_parameter[group].keys()) 
     )
     read_namelist += "rewind(fh); read(fh, nml={GROUP}, iostat=ret)\n".format(
         GROUP=group
     )
 
-    for name in sorted(input_parameter[group].keys()):
+    for name in input_parameter[group]:
         f90type, dimlist, default = input_parameter[group][name]
         def_variable += "{F90TYPE} :: {NAME}{F90DIM}\n".format(
             F90TYPE=f90type, NAME=name, F90DIM=f90dim(dimlist)    

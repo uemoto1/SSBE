@@ -131,11 +131,10 @@ contains
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_eigen.data', 'old')
         do i=1, 3
-            read(fh, *) dummy !Skip
-            write(*, *) dummy
+            read(fh, '(a)') dummy !Skip
         end do
         do ik=1, nk
-            read(fh, *) dummy !Skip
+            read(fh, '(a)') dummy !Skip
             do ib=1, nb
                 read(fh) idummy, gs%eigen(ib, ik)
             end do
@@ -151,10 +150,10 @@ contains
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_k.data', 'old')
         do i=1, 8
-            read(fh, *) dummy !Skip
+            read(fh, '(a)') dummy !Skip
         end do
         do ik=1, nk
-            read(fh, *) dummy !Skip
+            read(fh, '(a)') dummy !Skip
             do ib=1, nb
                 read(fh) idummy, gs%kvec(1:3, ik), gs%kweight(ik)
             end do !ib
@@ -171,7 +170,7 @@ contains
 
         fh = open_filehandle(trim(directory) // trim(sysname) // '_tm.data', 'old')
         do i=1, 3
-            read(fh, *) dummy !Skip
+            read(fh, '(a)') dummy !Skip
         end do
         do ik=1, nk
             do ib=1, nb
