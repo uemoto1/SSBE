@@ -32,7 +32,7 @@ program main
         E = 0d0
         Ac = 0d0
         call dt_evolve(sbe, gs, 1d-2, E, Ac, rho)
-        write(*,*) calc_total_elec(sbe, gs, rho)
+        write(*,*) calc_total_elec(sbe, gs, rho, sbe%nb/2)
     end do
 
     stop

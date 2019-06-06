@@ -2,7 +2,7 @@
 
 input_parameter = {
     'control': {
-        'sysname':      ['character(64)',   [],     ""],
+        'sysname':      ['character(64)',   [],     "untitled"],
         'directory':    ['character(64)',   [],     "./"],
     },
     'system': {
@@ -21,9 +21,18 @@ input_parameter = {
         'n_dielec':     ['integer',         [],     1000],
         'gamma_dielec': ['real(8)',         [],     0.01],
     },
+    'tgrid': {
+        'dt':           ['real(8)',         [],     0.01],
+        'nt':           ['integer',         [],     1000],
+    },
+    'emfield': {
+        'epdir_re1':         ['real(8)',    [3],    [0.0, 0.0, 1.0]],
+        'rlaser_int_wcm2_1': ['real(8)',    [],     1e10],
+        'omega1':            ['real(8)',    [],     1.55 / 13.6 / 2],
+        'pulse_tw1':         ['real(8)',    [],     10.0 / 41.35],
+        'phi_cep1':          ['real(8)',    [],     0.00],
+    },
 }
-
-
 
 
 

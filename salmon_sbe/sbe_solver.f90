@@ -312,16 +312,16 @@ subroutine calc_hrho(sbe, gs, E, Ac, rho, hrho)
         hrho(:, :, ik) = gs%omega(1:sbe%nb, 1:sbe%nb, ikAc_gs) * rho(:, :, ik)
         !hrho = hrho - E(t) * (d * rho - rho * d)
         do idir=1, 3 !1:x, 2:y, 3:z
-            ! call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
-            !     & dcmplx(-E(idir), 0d0), &
-            !     & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
-            !     & rho(:, :, ik), sbe%nb, &
-            !     & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
-            ! call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
-            !     & dcmplx(+E(idir), 0d0), &
-            !     & rho(:, :, ik), sbe%nb, &
-            !     & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
-            !     & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
+            call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
+                & dcmplx(-E(idir), 0d0), &
+                & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
+                & rho(:, :, ik), sbe%nb, &
+                & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
+            call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
+                & dcmplx(+E(idir), 0d0), &
+                & rho(:, :, ik), sbe%nb, &
+                & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
+                & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
         end do !idir
     end do !ik
     !$omp end parallel do
@@ -384,18 +384,19 @@ subroutine dt_evolve(sbe, gs, dt, E, Ac, rho)
     return
 end subroutine
 
-function calc_total_elec(sbe, gs, rho) result(rtot)
+function calc_total_elec(sbe, gs, rho, nb_max) result(rtot)
     implicit none
     type(s_sbe), intent(in) :: sbe
     type(s_sbe_gs), intent(in) :: gs
     complex(8), intent(in) :: rho(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
+    integer, intent(in) :: nb_max
     complex(8), parameter :: zi = dcmplx(0d0, 1d0)
     integer :: ik, ib
     real(8) :: rtot
     rtot = 0d0
     !$omp parallel do default(shared) private(ik, ib) reduction(+:rtot) collapse(2) 
     do ik = 1, sbe%nk
-        do ib = 1, sbe%nb
+        do ib = 1, nb_max
             rtot = rtot + real(rho(ib, ib, ik)) * sbe%kweight(ik)
         end do
     end do
