@@ -47,11 +47,10 @@ contains
             tmp = adjustl(tmp)
             if (tmp(1:1) .ne. '!') write(fh, '(a)') trim(tmp)
         end do
-        rewind(fh); read(fh, nml=control)
-        rewind(fh); read(fh, nml=kgrid)
-        rewind(fh); read(fh, nml=system)
+        rewind(fh); read(fh, nml=control, iostat=ret)
+        rewind(fh); read(fh, nml=kgrid, iostat=ret)
+        rewind(fh); read(fh, nml=system, iostat=ret)
         close(fh)
-
     end subroutine read_input
 end module input_parameter
 

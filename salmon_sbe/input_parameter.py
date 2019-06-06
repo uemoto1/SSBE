@@ -49,7 +49,6 @@ contains
         end do
 {READ_NAMELIST}
         close(fh)
-
     end subroutine read_input
 end module input_parameter
 """
@@ -75,7 +74,7 @@ for group in sorted(input_parameter.keys()):
         GROUP=group,
         VARLIST=", &\n& ".join(sorted(input_parameter[group].keys()))    
     )
-    read_namelist += "rewind(fh); read(fh, nml={GROUP})\n".format(
+    read_namelist += "rewind(fh); read(fh, nml={GROUP}, iostat=ret)\n".format(
         GROUP=group
     )
 

@@ -1,5 +1,5 @@
 
-module SBE
+module sbe_solver
     implicit none
 
 

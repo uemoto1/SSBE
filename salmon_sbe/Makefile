@@ -9,7 +9,7 @@ parallel/salmon_communication.o \
 parallel/salmon_parallel.o \
 common/structures.o \
 common/pack_unpack.o \
-input_parameter.f90 \
+input_parameter.o \
 sbe.o \
 main.o
 
