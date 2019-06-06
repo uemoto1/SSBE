@@ -129,10 +129,7 @@ contains
         character(256) :: dummy
         integer :: fh, i, ik, ib, idummy
 
-        write(*,*) "sys", sysname
-        write(*,*) "dir", directory
-
-        fh = open_filehandle(trim(directory) // trim(sysname) // '_eigen.data')
+        fh = open_filehandle(trim(directory) // trim(sysname) // '_eigen.data', 'old')
         do i=1, 3
             read(fh, *) dummy !Skip
         end do
@@ -151,7 +148,7 @@ contains
         character(256) :: dummy
         integer :: fh, i, ik, ib, idummy
 
-        fh = open_filehandle(trim(directory) // trim(sysname) // '_k.data')
+        fh = open_filehandle(trim(directory) // trim(sysname) // '_k.data', 'old')
         do i=1, 8
             read(fh, *) dummy !Skip
         end do
@@ -171,7 +168,7 @@ contains
         integer :: fh, i, ik, ib, jb, idummy
         real(8) :: tmp(1:6)
 
-        fh = open_filehandle(trim(directory) // trim(sysname) // '_tm.data')
+        fh = open_filehandle(trim(directory) // trim(sysname) // '_tm.data', 'old')
         do i=1, 3
             read(fh, *) dummy !Skip
         end do
