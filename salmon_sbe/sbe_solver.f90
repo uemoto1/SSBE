@@ -188,10 +188,11 @@ contains
         integer :: ik, ib, jb
         real(8), parameter :: epsilon = 1d-4
         complex(8), parameter :: zi = dcmplx(0d0, 1d0)
-        do ik=1, nb
+        do ik=1, nk
             do ib=1, nb
                 do jb=1, nb
                     gs%omega(ib, jb, ik) = gs%eigen(ib, ik) - gs%eigen(jb, ik)
+                    ! write(*, *) ib, jb, gs%omega(ib, jb, ik), "#OMEGA"
                     if (epsilon < abs(gs%omega(ib, jb, ik))) then
                         gs%d_matrix(ib, jb, 1:3, ik) = &
                             & zi * gs%p_matrix(ib, jb, 1:3, ik) / gs%omega(ib, jb, ik)
