@@ -2,20 +2,21 @@
 
 input_parameter = {
     'control': {
-        'sysname':   ['character(64)', [],      ""],
-        'directory': ['character(64)', [],      ""],
+        'sysname':      ['character(64)',   [],     ""],
+        'directory':    ['character(64)',   [],     ""],
     },
     'system': {
-        'al_vec2':   ['real(8)',       [3],     0.],
-        'al_vec1':   ['real(8)',       [3],     0.],
-        'al_vec3':   ['real(8)',       [3],     0.],
-        'nstate':    ['integer',       [],      0],
-        'nelec':     ['integer',       [],      0],
+        'al_vec2':      ['real(8)',         [3],    0.],
+        'al_vec1':      ['real(8)',         [3],    0.],
+        'al_vec3':      ['real(8)',         [3],    0.],
+        'nstate':       ['integer',         [],     0],
+        'nelec':        ['integer',         [],     0],
     },
     'kgrid': {
-        'num_kgrid': ['integer',       [3],     0],
+        'num_kgrid':    ['integer',         [3],    0],
     },
 }
+
 
 
 
@@ -48,7 +49,10 @@ contains
             if (tmp(1:1) .ne. '!') write(fh, '(a)') trim(tmp)
         end do
 {READ_NAMELIST}
+
         close(fh)
+
+{VAR_DUMP}
     end subroutine read_input
 end module input_parameter
 """
@@ -61,6 +65,19 @@ def f90dim(dimlist):
         return "(" + ", ".join(["1:%d" % i for i in dimlist]) + ")"
     else:
         return ""
+
+def f90val(value):
+    return repr(value).replace("[", "(/").replace("]", "/)")
+
+def f90fmt(f90type):
+    if "character" in f90type:
+        return "a"
+    elif "integer" in f90type:
+        return "i9.9"
+    elif "real" in f90type:
+        return "f12.5"
+    else:
+        raise TypeError
 
 
 def_variable = ""
@@ -79,12 +96,15 @@ for group in sorted(input_parameter.keys()):
     )
 
     for name in sorted(input_parameter[group].keys()):
-        f90type, dimlist, val = input_parameter[group][name]
+        f90type, dimlist, default = input_parameter[group][name]
         def_variable += "{F90TYPE} :: {NAME}{F90DIM}\n".format(
             F90TYPE=f90type, NAME=name, F90DIM=f90dim(dimlist)    
         )
         default_variable += "{NAME} = {VALUE}\n".format(
-            NAME=name, VALUE=repr(val),
+            NAME=name, VALUE=f90val(default)
+        )
+        var_dump += """write(*, '("# {NAME}=",99({F90FMT},1x))') {NAME}\n""".format(
+            NAME=name, F90FMT=f90fmt(f90type)
         )
         
             
@@ -93,5 +113,6 @@ print(template.format(
     DEF_VARIABLE=indent(def_variable, 4),
     DEF_NAMELIST=indent(def_namelist, 8),
     READ_NAMELIST=indent(read_namelist, 8),
-    VARIABLE_DEFAULT=indent(default_variable, 8)
+    VARIABLE_DEFAULT=indent(default_variable, 8),
+    VAR_DUMP=indent(var_dump, 8)
 ))

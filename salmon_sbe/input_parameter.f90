@@ -50,7 +50,17 @@ contains
         rewind(fh); read(fh, nml=control, iostat=ret)
         rewind(fh); read(fh, nml=kgrid, iostat=ret)
         rewind(fh); read(fh, nml=system, iostat=ret)
+
         close(fh)
+
+        write(*, '("# directory=",99(a,1x))') directory
+        write(*, '("# sysname=",99(a,1x))') sysname
+        write(*, '("# num_kgrid=",99(i9.9,1x))') num_kgrid
+        write(*, '("# al_vec1=",99(f12.5,1x))') al_vec1
+        write(*, '("# al_vec2=",99(f12.5,1x))') al_vec2
+        write(*, '("# al_vec3=",99(f12.5,1x))') al_vec3
+        write(*, '("# nelec=",99(i9.9,1x))') nelec
+        write(*, '("# nstate=",99(i9.9,1x))') nstate
     end subroutine read_input
 end module input_parameter
 
