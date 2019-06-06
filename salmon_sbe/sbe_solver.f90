@@ -138,9 +138,9 @@ contains
             read(fh, '(a)') dummy !Skip
             write(*, *) "skip", dummy
             do ib=1, nb
-                read(fh) idummy, gs%eigen(ib, ik)
+                read(fh, *) idummy, gs%eigen(ib, ik)
             end do
-            write(*,*) ik, ib, gs%eigen(ib, ik)
+            write(*, *) ik, ib, gs%eigen(ib, ik)
         end do
         close(fh)
     end subroutine read_eigen_data
@@ -158,7 +158,7 @@ contains
         do ik=1, nk
             read(fh, '(a)') dummy !Skip
             do ib=1, nb
-                read(fh) idummy, gs%kvec(1:3, ik), gs%kweight(ik)
+                read(fh, *) idummy, gs%kvec(1:3, ik), gs%kweight(ik)
             end do !ib
         end do !ik
         close(fh)
@@ -178,7 +178,7 @@ contains
         do ik=1, nk
             do ib=1, nb
                 do jb=1, nb
-                    read(fh) idummy, idummy, idummy, tmp(1:6)
+                    read(fh, *) idummy, idummy, idummy, tmp(1:6)
                     gs%p_matrix(ib, jb, 1, ik) = dcmplx(tmp(1), tmp(2))
                     gs%p_matrix(ib, jb, 2, ik) = dcmplx(tmp(3), tmp(4))
                     gs%p_matrix(ib, jb, 3, ik) = dcmplx(tmp(5), tmp(6))
