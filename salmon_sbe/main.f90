@@ -38,7 +38,7 @@ program main
 
         if (mod(it, out_rt_step) == 0) then
             call calc_current(sbe, gs, Ac, jmat)
-            write(*, '(i6,1x,f7.3,99(1x,e23.15e3))') &
+            write(*, '(i6,1x,f9.3,99(1x,e23.15e3))') &
             & it, t, Ac, E, jmat, calc_trace(sbe, sbe%nb/2), calc_trace(sbe, sbe%nb)
         end if
     end do

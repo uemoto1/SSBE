@@ -319,25 +319,27 @@ subroutine calc_current(sbe, gs, Ac, jmat)
     real(8), intent(in) :: Ac(1:3)
     real(8), intent(out) :: jmat(1:3)
     integer :: ik, ikAc_gs, idir, ib, jb
+    real(8) :: jtot(1:3)
 
-    jmat = 0d0
+    jtot(1:3) = 0d0
 
-    !$omp parallel do default(shared) private(ik, ikAc_gs, idir, ib, jb) reduction(+: jmat)
+    !$omp parallel do default(shared) private(ik, ikAc_gs, idir, ib, jb) reduction(+: jtot)
     do ik=1, sbe%nk
         ikAc_gs = get_ik_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3))
         do idir=1, 3
             do jb=1, sbe%nb
                 do ib=1, sbe%nb
-                    jmat(idir) = jmat(idir) + &
-                        & real(gs%p_matrix(ib, jb, idir, ikAc_gs) * sbe%rho(jb, ib, ik)) * sbe%kweight(ik) / gs%volume
+                    jtot(idir) = jtot(idir) + sbe%kweight(ik) &
+                        & * real(gs%p_matrix(ib, jb, idir, ikAc_gs) * sbe%rho(jb, ib, ik)) 
                 end do
+                jtot(idir) = jtot(idir) + sbe%kweight(ik) &
+                & * real(sbe%rho(jb, jb, ik)) * gs%kvec(idir, ikAc_gs)
             end do
         end do
     end do
     !$omp end parallel do
 
-    !jmat = jmat / sum(sbe%kweight)
-    jmat(idir) =  jmat(idir) +  gs%ne * Ac(idir) / gs%volume
+    jmat(:) =  jtot(:) / gs%volume
 
     return
 end subroutine calc_current
@@ -361,10 +363,10 @@ subroutine dt_evolve(sbe, gs, E, Ac)
     call calc_hrho(hrho2, hrho3)
     call calc_hrho(hrho3, hrho4)
 
-    sbe%rho = sbe%rho + hrho1 * (zi * sbe%dt)
-    sbe%rho = sbe%rho + hrho2 * (zi * sbe%dt) ** 2 * (1d0 / 2d0)
-    sbe%rho = sbe%rho + hrho3 * (zi * sbe%dt) ** 3 * (1d0 / 6d0)
-    sbe%rho = sbe%rho + hrho4 * (zi * sbe%dt) ** 4 * (1d0 / 24d0)
+    sbe%rho = sbe%rho + hrho1 * (- zi * sbe%dt)
+    sbe%rho = sbe%rho + hrho2 * (- zi * sbe%dt) ** 2 * (1d0 / 2d0)
+    sbe%rho = sbe%rho + hrho3 * (- zi * sbe%dt) ** 3 * (1d0 / 6d0)
+    sbe%rho = sbe%rho + hrho4 * (- zi * sbe%dt) ** 4 * (1d0 / 24d0)
     return
 
 contains
