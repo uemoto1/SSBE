@@ -75,7 +75,7 @@ contains
         al_vec1 = 0.0
         nstate = 0
         nelec = 0
-        gamma_dielec = 0.01
+        gamma_dielec = 0.005
         out_rt_step = 10
         n_dielec = 1000
         e_min_dielec = 0.0

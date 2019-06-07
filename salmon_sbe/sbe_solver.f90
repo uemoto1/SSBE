@@ -31,7 +31,7 @@ module sbe_solver
 
     type s_sbe
         !k-points for real-time SBE calculation
-        integer :: nk, nb, nt
+        integer :: nk, nb
         real(8) :: dt
         real(8), allocatable :: kvec(:, :), kweight(:)
         complex(8), allocatable :: rho(:, :, :)
@@ -225,12 +225,11 @@ end subroutine init_sbe_gs
 
 
 
-subroutine init_sbe(sbe, gs, nkgrid, nt, dt)
+subroutine init_sbe(sbe, gs, nkgrid, dt)
     implicit none
     type(s_sbe), intent(inout) :: sbe
     type(s_sbe_gs), intent(in) :: gs
     integer, intent(in) :: nkgrid(1:3)
-    integer, intent(in) :: nt
     real(8), intent(in) :: dt
 
     integer :: nk, nb
@@ -240,13 +239,13 @@ subroutine init_sbe(sbe, gs, nkgrid, nt, dt)
 
     sbe%nk = nk
     sbe%nb = nb
-    sbe%nt = nt
     sbe%dt = dt
 
+    allocate(sbe%rho(1:nb, 1:nb, 1:nk))
     allocate(sbe%kvec(1:3, 1:nk))
     allocate(sbe%kweight(1:nk))
-    allocate(sbe%rho(1:nb, 1:nb, 1:nk))
     
+    call init_rho()
     call create_uniform_kgrid()
 
  contains
@@ -278,6 +277,20 @@ subroutine init_sbe(sbe, gs, nkgrid, nt, dt)
             end do
         end do
     end subroutine
+
+
+    subroutine init_rho()
+        implicit none
+        integer :: ik, ib
+        ! Initial state of density matrix:
+        sbe%rho = 0d0
+        do ik = 1, sbe%nk
+            do ib = 1, sbe%nb
+                sbe%rho(ib, ib, ik) = gs%occup(ib, ik)
+            end do
+        end do
+    end subroutine
+
 end subroutine
 
 
@@ -299,26 +312,24 @@ end function get_ik_gs
 
 
 
-subroutine calc_current(sbe, gs, rho, Ac)
+subroutine calc_current(sbe, gs, Ac, jmat)
     implicit none
     type(s_sbe), intent(in) :: sbe
     type(s_sbe_gs), intent(in) :: gs
-    complex(8), intent(in) :: rho(sbe%nb, sbe%nb, sbe%nk)
     real(8), intent(in) :: Ac(1:3)
+    real(8), intent(out) :: jmat(1:3)
     integer :: ik, ikAc_gs, idir, ib, jb
-    real(8) :: jcur(1:3)
 
-    !Local diagonal component
-    !$omp parallel do default(shared) private(ik, ikAc_gs, idir, ib, jb) reduction(+: jcur)
+    !$omp parallel do default(shared) private(ik, ikAc_gs, idir, ib, jb) reduction(+: jmat)
     do ik=1, sbe%nk
         ikAc_gs = get_ik_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3))
         do idir=1, 3
-            do ib=1, sbe%nb
-                do jb=1, sbe%nb
-                    jcur(idir) = jcur(idir) + &
-                        & real(gs%p_matrix(ib, jb, idir, ikAc_gs) * rho(jb, ib, ik))
+            do jb=1, sbe%nb
+                do ib=1, sbe%nb
+                    jmat(idir) = jmat(idir) + &
+                        & real(gs%p_matrix(ib, jb, idir, ikAc_gs) * sbe%rho(jb, ib, ik)) / sbe%nk / gs%volume
                 end do
-                jcur(idir) = jcur(idir) + gs%kvec(idir, ikAc_gs) * real(rho(ib, ib, ik))
+                !jmat(idir) = jmat(idir) + (sbe%kvec(idir, ik) ) * real(sbe%rho(jb, jb, ik)) / sbe%nk  / gs%volume
             end do
         end do
     end do
@@ -385,25 +396,24 @@ contains
 
 end subroutine
 
-function calc_total_elec(sbe, gs, nb_max) result(rtot)
+function calc_trace(sbe, nb_max) result(tr)
     implicit none
     type(s_sbe), intent(in) :: sbe
-    type(s_sbe_gs), intent(in) :: gs
     integer, intent(in) :: nb_max
     complex(8), parameter :: zi = dcmplx(0d0, 1d0)
     integer :: ik, ib
-    real(8) :: rtot
-    rtot = 0d0
-    !$omp parallel do default(shared) private(ik, ib) reduction(+:rtot) collapse(2) 
+    real(8) :: tr
+    tr = 0d0
+    !$omp parallel do default(shared) private(ik, ib) reduction(+: tr) collapse(2) 
     do ik = 1, sbe%nk
         do ib = 1, nb_max
-            rtot = rtot + real(sbe%rho(ib, ib, ik)) * sbe%kweight(ik)
+            tr = tr + real(sbe%rho(ib, ib, ik)) * sbe%kweight(ik)
         end do
     end do
     !$omp end parallel do
-    rtot = rtot / sum(sbe%kweight)
+    tr = tr / sum(sbe%kweight)
     return 
-end function calc_total_elec
+end function calc_trace
 
 
 end module
