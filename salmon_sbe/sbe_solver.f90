@@ -320,6 +320,8 @@ subroutine calc_current(sbe, gs, Ac, jmat)
     real(8), intent(out) :: jmat(1:3)
     integer :: ik, ikAc_gs, idir, ib, jb
 
+    jmat = 0d0
+
     !$omp parallel do default(shared) private(ik, ikAc_gs, idir, ib, jb) reduction(+: jmat)
     do ik=1, sbe%nk
         ikAc_gs = get_ik_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3))
@@ -327,13 +329,15 @@ subroutine calc_current(sbe, gs, Ac, jmat)
             do jb=1, sbe%nb
                 do ib=1, sbe%nb
                     jmat(idir) = jmat(idir) + &
-                        & real(gs%p_matrix(ib, jb, idir, ikAc_gs) * sbe%rho(jb, ib, ik)) / sbe%nk / gs%volume
+                        & real(gs%p_matrix(ib, jb, idir, ikAc_gs) * sbe%rho(jb, ib, ik)) * sbe%kweight(ik) / gs%volume
                 end do
-                !jmat(idir) = jmat(idir) + (sbe%kvec(idir, ik) ) * real(sbe%rho(jb, jb, ik)) / sbe%nk  / gs%volume
             end do
         end do
     end do
     !$omp end parallel do
+
+    !jmat = jmat / sum(sbe%kweight)
+    jmat(idir) =  jmat(idir) +  gs%ne * Ac(idir) / gs%volume
 
     return
 end subroutine calc_current
