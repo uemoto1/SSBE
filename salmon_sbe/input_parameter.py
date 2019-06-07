@@ -20,19 +20,25 @@ input_parameter = {
         'e_max_dielec': ['real(8)',         [],     1.],
         'n_dielec':     ['integer',         [],     1000],
         'gamma_dielec': ['real(8)',         [],     0.01],
+        'out_rt_step' : ['integer',         [],     10],
     },
     'tgrid': {
-        'dt':           ['real(8)',         [],     0.05],
-        'nt':           ['integer',         [],     1000],
+        'dt':           ['real(8)',         [],     0.08],
+        'nt':           ['integer',         [],     5000],
     },
     'emfield': {
         'epdir_re1':         ['real(8)',    [3],    [0.0, 0.0, 1.0]],
+        'epdir_im1':         ['real(8)',    [3],    [0.0, 0.0, 0.0]],
         'rlaser_int_wcm2_1': ['real(8)',    [],     1e10],
-        'omega1':            ['real(8)',    [],     1.55 / 13.6 / 2],
-        'pulse_tw1':         ['real(8)',    [],     10.0 * 41.35],
+        'omega1':            ['real(8)',    [],     0.05698],
+        'pulse_tw1':         ['real(8)',    [],     413.5],
         'phi_cep1':          ['real(8)',    [],     0.00],
     },
 }
+
+
+
+
 
 
 

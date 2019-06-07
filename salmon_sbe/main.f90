@@ -1,12 +1,12 @@
 program main
     use sbe_solver
     use input_parameter
+    use pulse
     implicit none
 
     type(s_sbe) :: sbe
     type(s_sbe_gs) :: gs
-    real(8) :: E(3), Ac(3)
-
+    real(8) :: t, E(3), Ac(3), Ac_dt(3)
     integer :: ib, it
 
     call read_input()
@@ -30,10 +30,18 @@ program main
 
     ! Realtime calculation
     do it = 1, sbe%nt
-        E = 0d0
-        Ac = 0d0
+        t = sbe%dt * it
+        call calc_pulse_ac(t, pulse_tw1, rlaser_int_wcm2_1, &
+            & omega1, phi_cep1, epdir_re1, epdir_im1, Ac)
+        call calc_pulse_ac(t + dt, pulse_tw1, rlaser_int_wcm2_1, &
+            & omega1, phi_cep1, epdir_re1, epdir_im1, Ac_dt)
+        E = - (Ac_dt - Ac) / dt
         call dt_evolve(sbe, gs, E, Ac)
-        write(*,*) calc_total_elec(sbe, gs, sbe%nb/2)
+
+        if (mod(it, out_rt_step) == 0) then
+            write(*, '(i6,1x,f7.3,99(1x,e23.15e3))') &
+            & it, t, Ac, E, calc_total_elec(sbe, gs, sbe%nb/2)
+        end if
     end do
 
     stop

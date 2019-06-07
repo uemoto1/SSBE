@@ -11,8 +11,9 @@ parallel/salmon_parallel.o \
 common/structures.o \
 common/pack_unpack.o \
 sbe_solver.o \
-input_parameter.o \
+pulse.o \
 test.o \
+input_parameter.o \
 main.o
 
 $(TARGET): $(OBJS)
