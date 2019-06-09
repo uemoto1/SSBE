@@ -32,7 +32,6 @@ module sbe_solver
     type s_sbe
         !k-points for real-time SBE calculation
         integer :: nk, nb
-        real(8) :: dt
         real(8), allocatable :: kvec(:, :), kweight(:)
         complex(8), allocatable :: rho(:, :, :)
         ! integer :: ik_s, ik_e, icomm_k
@@ -225,12 +224,11 @@ end subroutine init_sbe_gs
 
 
 
-subroutine init_sbe(sbe, gs, nkgrid, dt)
+subroutine init_sbe(sbe, gs, nkgrid)
     implicit none
     type(s_sbe), intent(inout) :: sbe
     type(s_sbe_gs), intent(in) :: gs
     integer, intent(in) :: nkgrid(1:3)
-    real(8), intent(in) :: dt
 
     integer :: nk, nb
 
@@ -239,7 +237,6 @@ subroutine init_sbe(sbe, gs, nkgrid, dt)
 
     sbe%nk = nk
     sbe%nb = nb
-    sbe%dt = dt
 
     allocate(sbe%rho(1:nb, 1:nb, 1:nk))
     allocate(sbe%kvec(1:3, 1:nk))
@@ -345,12 +342,13 @@ subroutine calc_current(sbe, gs, Ac, jmat)
 end subroutine calc_current
 
 
-subroutine dt_evolve(sbe, gs, E, Ac)
+subroutine dt_evolve(sbe, gs, E, Ac, dt)
     implicit none
     type(s_sbe), intent(inout) :: sbe
     type(s_sbe_gs), intent(in) :: gs
     real(8), intent(in) :: E(1:3)
     real(8), intent(in) :: Ac(1:3)
+    real(8), intent(in) :: dt
     complex(8), parameter :: zi = dcmplx(0d0, 1d0)
 
     complex(8) :: hrho1(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
@@ -363,10 +361,10 @@ subroutine dt_evolve(sbe, gs, E, Ac)
     call calc_hrho(hrho2, hrho3)
     call calc_hrho(hrho3, hrho4)
 
-    sbe%rho = sbe%rho + hrho1 * (- zi * sbe%dt)
-    sbe%rho = sbe%rho + hrho2 * (- zi * sbe%dt) ** 2 * (1d0 / 2d0)
-    sbe%rho = sbe%rho + hrho3 * (- zi * sbe%dt) ** 3 * (1d0 / 6d0)
-    sbe%rho = sbe%rho + hrho4 * (- zi * sbe%dt) ** 4 * (1d0 / 24d0)
+    sbe%rho = sbe%rho + hrho1 * (- zi * dt)
+    sbe%rho = sbe%rho + hrho2 * (- zi * dt) ** 2 * (1d0 / 2d0)
+    sbe%rho = sbe%rho + hrho3 * (- zi * dt) ** 3 * (1d0 / 6d0)
+    sbe%rho = sbe%rho + hrho4 * (- zi * dt) ** 4 * (1d0 / 24d0)
     return
 
 contains

@@ -6,7 +6,7 @@ program main
 
     type(s_sbe) :: sbe
     type(s_sbe_gs) :: gs
-    real(8) :: t, E(3), Ac(3), Ac_dt(3), jmat(3)
+    real(8) :: t, E(3), Ac(3), jmat(3)
     integer :: it
 
     call read_input()
@@ -21,20 +21,18 @@ program main
         & gs, e_min_dielec, e_max_dielec, n_dielec, gamma_dielec)
 
     ! Initialization of SBE solver and density matrix:
-    call init_sbe(sbe, gs, num_kgrid, dt)
+    call init_sbe(sbe, gs, num_kgrid)
 
     write(*, '("#", 99(1x,a))') "1:Step", "2:Time[au]", "3:Ac_x", "4:Ac_y", "5:Ac_z", &
         & "6:E_x", "7:E_y", "8:E_z", "9:Jmat_x", "10:Jmat_y", "11:Jmat_z", "12:n_v", "13:n_all" 
 
     ! Realtime calculation
     do it = 1, nt
-        t = sbe%dt * it
-        call calc_pulse_ac(t, pulse_tw1, rlaser_int_wcm2_1, &
-            & omega1, phi_cep1, epdir_re1, epdir_im1, Ac)
-        call calc_pulse_ac(t + dt, pulse_tw1, rlaser_int_wcm2_1, &
-            & omega1, phi_cep1, epdir_re1, epdir_im1, Ac_dt)
-        E = - (Ac_dt - Ac) / dt
-        call dt_evolve(sbe, gs, E, Ac)
+        t = dt * it
+        call calc_cos2_pulse(t - dt * 0.5d0, pulse_tw1, &
+            & rlaser_int_wcm2_1, omega1, phi_cep1, epdir_re1, epdir_im1, &
+            & Ac, E)
+        call dt_evolve(sbe, gs, E, Ac, dt)
 
         if (mod(it, out_rt_step) == 0) then
             call calc_current(sbe, gs, Ac, jmat)
