@@ -333,7 +333,7 @@ subroutine calc_current(sbe, gs, Ac, jmat)
         end do
     end do
     !$omp end parallel do
-    jmat(:) =  (jtot(:) + gs%nelec * ac(:)) / gs%volume
+    jmat(:) =  (jtot(:) + gs%ne * ac(:)) / gs%volume
 
     return
 end subroutine calc_current
