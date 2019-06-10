@@ -330,7 +330,7 @@ subroutine calc_current(sbe, gs, Ac, jmat)
                         & * real(gs%p_matrix(ib, jb, idir, ikAc_gs) * sbe%rho(jb, ib, ik)) 
                 end do
                 jtot(idir) = jtot(idir) + sbe%kweight(ik) &
-                & * real(sbe%rho(jb, jb, ik)) * (sbe%kvec(1:3, ik) + Ac(1:3))
+                & * real(sbe%rho(jb, jb, ik)) * (sbe%kvec(idir, ik) + Ac(idir))
             end do
         end do
     end do
