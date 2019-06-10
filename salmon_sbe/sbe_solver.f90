@@ -329,14 +329,11 @@ subroutine calc_current(sbe, gs, Ac, jmat)
                     jtot(idir) = jtot(idir) + sbe%kweight(ik) &
                         & * real(gs%p_matrix(ib, jb, idir, ikAc_gs) * sbe%rho(jb, ib, ik)) 
                 end do
-                jtot(idir) = jtot(idir) + sbe%kweight(ik) &
-                & * real(sbe%rho(jb, jb, ik)) * (sbe%kvec(idir, ik) + Ac(idir))
             end do
         end do
     end do
     !$omp end parallel do
-
-    jmat(:) =  jtot(:) / gs%volume
+    jmat(:) =  (jtot(:) + gs%nelec * ac(:)) / gs%volume
 
     return
 end subroutine calc_current
