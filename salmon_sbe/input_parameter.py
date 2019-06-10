@@ -13,18 +13,19 @@ input_parameter = {
         'nelec':        ['integer',         [],     0],
     },
     'kgrid': {
-        'num_kgrid':    ['integer',         [3],    0],
+        'num_kgrid_gs':     ['integer',     [3],    0],
+        'num_kgrid_sbe':    ['integer',     [3],    0],
     },
     'analysis': {
-        'e_min_dielec': ['real(8)',         [],     0.],
-        'e_max_dielec': ['real(8)',         [],     1.],
-        'n_dielec':     ['integer',         [],     1000],
-        'gamma_dielec': ['real(8)',         [],     0.005],
-        'out_rt_step' : ['integer',         [],     10],
+        'e_min_dielec':     ['real(8)',     [],     0.],
+        'e_max_dielec':     ['real(8)',     [],     1.],
+        'n_dielec':         ['integer',     [],     1000],
+        'gamma_dielec':     ['real(8)',     [],     0.005],
+        'out_rt_step' :     ['integer',     [],     10],
     },
     'tgrid': {
-        'dt':           ['real(8)',         [],     0.08],
-        'nt':           ['integer',         [],     5000],
+        'dt':               ['real(8)',     [],     0.08],
+        'nt':               ['integer',     [],     5000],
     },
     'emfield': {
         'epdir_re1':         ['real(8)',    [3],    [0.0, 0.0, 1.0]],

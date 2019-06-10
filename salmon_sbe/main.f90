@@ -13,7 +13,7 @@ program main
 
     ! Read ground state electronic system:
     call init_sbe_gs(gs, sysname, directory, &
-        & num_kgrid, nstate, nelec, &
+        & num_kgrid_gs, nstate, nelec, &
         & al_vec1, al_vec2, al_vec3)
 
     ! Calculate dielectric spectra and save as SYSNAME_dielec.data:
@@ -21,9 +21,9 @@ program main
         & gs, e_min_dielec, e_max_dielec, n_dielec, gamma_dielec)
 
     ! Initialization of SBE solver and density matrix:
-    call init_sbe(sbe, gs, num_kgrid)
+    call init_sbe(sbe, gs, num_kgrid_sbe)
 
-    write(*, '("#", 99(1x,a))') "1:Step", "2:Time[au]", "3:Ac_x", "4:Ac_y", "5:Ac_z", &
+    write(*, '("#",99(1x,a))') "1:Step", "2:Time[au]", "3:Ac_x", "4:Ac_y", "5:Ac_z", &
         & "6:E_x", "7:E_y", "8:E_z", "9:Jmat_x", "10:Jmat_y", "11:Jmat_z", "12:n_v", "13:n_all" 
 
     ! Realtime calculation

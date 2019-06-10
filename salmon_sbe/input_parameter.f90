@@ -23,7 +23,8 @@ module input_parameter
     integer :: n_dielec
     real(8) :: e_min_dielec
     real(8) :: e_max_dielec
-    integer :: num_kgrid(1:3)
+    integer :: num_kgrid_sbe(1:3)
+    integer :: num_kgrid_gs(1:3)
 
 contains
 
@@ -58,7 +59,8 @@ contains
         & e_min_dielec, &
         & e_max_dielec
         namelist/kgrid/ &
-        & num_kgrid
+        & num_kgrid_sbe, &
+        & num_kgrid_gs
 
         directory = './'
         sysname = 'untitled'
@@ -80,7 +82,8 @@ contains
         n_dielec = 1000
         e_min_dielec = 0.0
         e_max_dielec = 1.0
-        num_kgrid = 0
+        num_kgrid_sbe = 0
+        num_kgrid_gs = 0
 
         fh = open_filehandle('.namelist.tmp')
         do while (.true.)
@@ -118,7 +121,8 @@ contains
         write(*, '("# n_dielec =",99(1x,i7))') n_dielec
         write(*, '("# e_min_dielec =",99(1x,f7.3))') e_min_dielec
         write(*, '("# e_max_dielec =",99(1x,f7.3))') e_max_dielec
-        write(*, '("# num_kgrid =",99(1x,i7))') num_kgrid
+        write(*, '("# num_kgrid_sbe =",99(1x,i7))') num_kgrid_sbe
+        write(*, '("# num_kgrid_gs =",99(1x,i7))') num_kgrid_gs
     end subroutine read_input
 end module input_parameter
 
