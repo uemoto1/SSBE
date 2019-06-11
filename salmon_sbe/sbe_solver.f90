@@ -26,6 +26,7 @@ module sbe_solver
         !NOTE: prepred for uniformally distributed k-grid....
         integer :: nkgrid(1:3)
         integer, allocatable :: iktbl_grid(:, :, :)
+        integer, allocatable :: ikcycle_tbl1(:), ikcycle_tbl2(:), ikcycle_tbl3(:)
     end type
 
 
@@ -36,11 +37,6 @@ module sbe_solver
         complex(8), allocatable :: rho(:, :, :)
         ! integer :: ik_s, ik_e, icomm_k
     end type
-
-
-
-
-
 
 
 
@@ -74,10 +70,13 @@ subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
     allocate(gs%eigen(1:nb, 1:nk))
     allocate(gs%occup(1:nb, 1:nk))
     allocate(gs%omega(1:nb, 1:nb, 1:nk))
-    allocate(gs%p_matrix(1:nb, 1:nb, 3, 1:nk))
-    allocate(gs%d_matrix(1:nb, 1:nb, 3, 1:nk))
+    allocate(gs%p_matrix(1:nb, 1:nb, 1:3, 1:nk))
+    allocate(gs%d_matrix(1:nb, 1:nb, 1:3, 1:nk))
     allocate(gs%rv_matrix(1:nb, 1:nb, 1:nk))
-    allocate(gs%iktbl_grid(1:nkgrid(1), 1:nkgrid(2), 1:nkgrid(3)))
+    allocate(gs%iktbl_grid(0:nkgrid(1)-1, 0:nkgrid(2)-1, 0:nkgrid(3)-1))
+    allocate(gs%ikcycle_tbl1(-nkgrid(1):2*nkgrid(1)-1))
+    allocate(gs%ikcycle_tbl2(-nkgrid(2):2*nkgrid(2)-1))
+    allocate(gs%ikcycle_tbl3(-nkgrid(3):2*nkgrid(3)-1))
     
     !Retrieve eigenenergies from 'SYSNAME_eigen.data':
     call read_eigen_data()
@@ -209,14 +208,30 @@ contains
         implicit none
         integer :: ik1, ik2, ik3, ik
         ik = 1
-        do ik3=1, nkgrid(3)
-            do ik2=1, nkgrid(2)
-                do ik1=1, nkgrid(1)
+        do ik3=0, nkgrid(3)-1
+            do ik2=0, nkgrid(2)-1
+                do ik1=0, nkgrid(1)-1
                     gs%iktbl_grid(ik1, ik2, ik3) = ik
                     ik = ik + 1
                 end do !ik1
             end do !ik2
         end do !ik3
+
+        do ik1=0, nkgrid(1)-1
+            gs%ikcycle_tbl1(ik1) = ik1
+            gs%ikcycle_tbl1(ik1+nkgrid(1)) = ik1
+            gs%ikcycle_tbl1(ik1-nkgrid(1)) = ik1
+        end do
+        do ik2=0, nkgrid(2)-1
+            gs%ikcycle_tbl2(ik2) = ik2
+            gs%ikcycle_tbl2(ik2+nkgrid(2)) = ik2
+            gs%ikcycle_tbl2(ik2-nkgrid(2)) = ik2
+        end do
+        do ik3=0, nkgrid(2)-1
+            gs%ikcycle_tbl3(ik3) = ik3
+            gs%ikcycle_tbl3(ik3+nkgrid(2)) = ik3
+            gs%ikcycle_tbl3(ik3-nkgrid(2)) = ik3
+        end do
     end subroutine create_uniform_iktbl_grid
 
 
@@ -291,19 +306,67 @@ subroutine init_sbe(sbe, gs, nkgrid)
 end subroutine
 
 
-function get_ik_gs(gs, kvec) result(ik_gs)
+
+
+subroutine interp(gs, kvec, ek, dk, pk)
     implicit none
     type(s_sbe_gs), intent(in) :: gs
     real(8), intent(in) :: kvec(3)
-    real(8) :: rka(3)    ! Reduced coordinate of k*a
-    integer :: ikgrid(3) ! Discretized 3D grid coordinate of k*a
-    integer :: ik_gs
+    real(8), intent(out) :: ek(gs%nb)
+    complex(8), intent(out) :: dk(gs%nb, gs%nb, 3)
+    complex(8), intent(out) :: pk(gs%nb, gs%nb, 3)
 
-    rka = (1d0 / (2d0 * pi)) * matmul(kvec, gs%a_matrix) + 0.5d0
-    ikgrid = ceiling((rka - floor(rka)) * gs%nkgrid)
-    ik_gs = gs%iktbl_grid(ikgrid(1), ikgrid(2), ikgrid(3))
+    real(8) :: tka(3) 
+    real(8) :: rkgrid(3), Wi(3), Wj(3)
+    integer :: ikgrid(3), jkgrid(3), ikg(3), jkg(3)
+    
+    tka = (1.0 / (2d0 * pi)) * matmul(kvec, gs%a_matrix) + 0.5
+
+    rkgrid = (tka - floor(tka)) * gs%nkgrid
+    ikgrid = int(floor(rkgrid - 0.5d0))
+    jkgrid = ikgrid + 1
+    wj = rkgrid - (floor(rkgrid - 0.5d0) + 0.5d0)
+    wi = 1d0 - wj
+    ikg(1) = gs%ikcycle_tbl1(ikgrid(1))
+    ikg(2) = gs%ikcycle_tbl2(ikgrid(2))
+    ikg(3) = gs%ikcycle_tbl3(ikgrid(3))
+    jkg(1) = gs%ikcycle_tbl1(jkgrid(1))
+    jkg(2) = gs%ikcycle_tbl2(jkgrid(2))
+    jkg(3) = gs%ikcycle_tbl3(jkgrid(3))
+
+    ek(:) = &
+    +wi(1)*wi(2)*wi(3)*gs%eigen(:,gs%iktbl_grid(ikg(1),ikg(2),ikg(3))) &
+    +wi(1)*wi(2)*wj(3)*gs%eigen(:,gs%iktbl_grid(ikg(1),ikg(2),jkg(3))) &
+    +wi(1)*wj(2)*wi(3)*gs%eigen(:,gs%iktbl_grid(ikg(1),jkg(2),ikg(3))) &
+    +wi(1)*wj(2)*wj(3)*gs%eigen(:,gs%iktbl_grid(ikg(1),jkg(2),jkg(3))) &
+    +wj(1)*wi(2)*wi(3)*gs%eigen(:,gs%iktbl_grid(jkg(1),ikg(2),ikg(3))) &
+    +wj(1)*wi(2)*wj(3)*gs%eigen(:,gs%iktbl_grid(jkg(1),ikg(2),jkg(3))) &
+    +wj(1)*wj(2)*wi(3)*gs%eigen(:,gs%iktbl_grid(jkg(1),jkg(2),ikg(3))) &
+    +wj(1)*wj(2)*wj(3)*gs%eigen(:,gs%iktbl_grid(jkg(1),jkg(2),jkg(3)))
+
+    dk(:,:,1:3) = &
+    +wi(1)*wi(2)*wi(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),ikg(2),ikg(3))) &
+    +wi(1)*wi(2)*wj(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),ikg(2),jkg(3))) &
+    +wi(1)*wj(2)*wi(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),jkg(2),ikg(3))) &
+    +wi(1)*wj(2)*wj(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),jkg(2),jkg(3))) &
+    +wj(1)*wi(2)*wi(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),ikg(2),ikg(3))) &
+    +wj(1)*wi(2)*wj(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),ikg(2),jkg(3))) &
+    +wj(1)*wj(2)*wi(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),jkg(2),ikg(3))) &
+    +wj(1)*wj(2)*wj(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),jkg(2),jkg(3)))
+
+    pk(:,:,1:3) = &
+    +wi(1)*wi(2)*wi(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),ikg(2),ikg(3))) &
+    +wi(1)*wi(2)*wj(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),ikg(2),jkg(3))) &
+    +wi(1)*wj(2)*wi(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),jkg(2),ikg(3))) &
+    +wi(1)*wj(2)*wj(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),jkg(2),jkg(3))) &
+    +wj(1)*wi(2)*wi(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),ikg(2),ikg(3))) &
+    +wj(1)*wi(2)*wj(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),ikg(2),jkg(3))) &
+    +wj(1)*wj(2)*wi(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),jkg(2),ikg(3))) &
+    +wj(1)*wj(2)*wj(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),jkg(2),jkg(3)))
+
     return
-end function get_ik_gs
+end subroutine interp
+
 
 
 
@@ -315,29 +378,79 @@ subroutine calc_current(sbe, gs, Ac, jmat)
     type(s_sbe_gs), intent(in) :: gs
     real(8), intent(in) :: Ac(1:3)
     real(8), intent(out) :: jmat(1:3)
-    integer :: ik, ikAc_gs, idir, ib, jb
+    real(8) :: ek(sbe%nb)
+    complex(8) :: pk(sbe%nb, sbe%nb, 3)
+    complex(8) :: dk(sbe%nb, sbe%nb, 3)
+    integer :: ik, idir, ib, jb
     real(8) :: jtot(1:3)
 
     jtot(1:3) = 0d0
 
-    !$omp parallel do default(shared) private(ik, ikAc_gs, idir, ib, jb) reduction(+: jtot)
+    !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk,pk) reduction(+:jtot)
     do ik=1, sbe%nk
-        ikAc_gs = get_ik_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3))
+        call interp(gs, sbe%kvec(1:3, ik) + Ac(1:3), ek, dk, pk)
         do idir=1, 3
             do jb=1, sbe%nb
                 do ib=1, sbe%nb
                     jtot(idir) = jtot(idir) + sbe%kweight(ik) &
-                        & * real(gs%p_matrix(ib, jb, idir, ikAc_gs) * sbe%rho(jb, ib, ik)) 
+                        & * real(pk(ib, jb, idir) * sbe%rho(jb, ib, ik)) 
                 end do
             end do
         end do
     end do
     !$omp end parallel do
     jmat(:) =  (jtot(:) + gs%ne * ac(:)) / gs%volume
-    !jmat(:) =  (jtot(:)) / gs%volume
+    jmat(:) =  (jtot(:) ) / gs%volume
 
     return
 end subroutine calc_current
+
+
+
+
+
+
+
+
+subroutine calc_current_bloch(sbe, gs, Ac, jmat)
+    implicit none
+    type(s_sbe), intent(in) :: sbe
+    type(s_sbe_gs), intent(in) :: gs
+    real(8), intent(in) :: Ac(1:3)
+    real(8), intent(out) :: jmat(1:3)
+    real(8) :: ek(sbe%nb)
+    complex(8) :: pk(sbe%nb, sbe%nb, 3)
+    complex(8) :: dk(sbe%nb, sbe%nb, 3)
+    integer :: ik, idir, ib, jb
+    real(8) :: jtot(1:3)
+
+    jtot(1:3) = 0d0
+
+    !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk,pk) reduction(+:jtot)
+    do ik=1, sbe%nk
+        call interp(gs, sbe%kvec(1:3, ik) + Ac(1:3), ek, dk, pk)
+        do idir=1, 3
+            do jb=1, sbe%nb
+                do ib=1, sbe%nb
+                    jtot(idir) = jtot(idir) + sbe%kweight(ik) &
+                        & * real(pk(ib, jb, idir) * sbe%rho(jb, ib, ik)) 
+                end do
+            end do
+        end do
+    end do
+    !$omp end parallel do
+    jmat(:) =  (jtot(:) + gs%ne * ac(:)) / gs%volume
+
+    return
+end subroutine calc_current_bloch
+
+
+
+
+
+
+
+
 
 
 subroutine dt_evolve(sbe, gs, E, Ac, dt)
@@ -372,29 +485,67 @@ contains
         implicit none
         complex(8), intent(in)     :: rho(sbe%nb, sbe%nb, sbe%nk)
         complex(8), intent(out)    :: hrho(sbe%nb, sbe%nb, sbe%nk)
-        integer :: ik, ikAc_gs, idir
-        !$omp parallel do default(shared) private(ik, ikAc_gs, idir)
+        real(8) :: ek(sbe%nb)
+        complex(8) :: pk(sbe%nb, sbe%nb, 3)
+        complex(8) :: dk(sbe%nb, sbe%nb, 3)
+        integer :: ik, idir, ib, jb
+        !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk,pk)
         do ik=1, sbe%nk
-            ikAc_gs = get_ik_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3))
+            call interp(gs, sbe%kvec(1:3, ik) + Ac(1:3), ek, dk, pk)
             !hrho(k) = omega(k + A/c) * rho(k) 
-            hrho(:, :, ik) = gs%omega(1:sbe%nb, 1:sbe%nb, ikAc_gs) * rho(:, :, ik)
+            do ib = 1, sbe%nb
+                do jb = 1, sbe%nb
+                    hrho(ib, jb, ik) = (ek(ib) - ek(jb)) * rho(ib, jb, ik)
+                end do
+            end do
             !hrho = hrho - E(t) * (d * rho - rho * d)
             do idir=1, 3 !1:x, 2:y, 3:z
                 call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
                     & dcmplx(-E(idir), 0d0), &
-                    & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
+                    & dk(:, :, idir), sbe%nb, &
                     & rho(:, :, ik), sbe%nb, &
                     & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
                 call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
                     & dcmplx(+E(idir), 0d0), &
                     & rho(:, :, ik), sbe%nb, &
-                    & gs%d_matrix(:, :, idir, ikAc_gs), sbe%nb, &
+                    & dk(:, :, idir), sbe%nb, &
                     & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
             end do !idir
         end do !ik
         !$omp end parallel do
         return
     end subroutine calc_hrho
+
+
+    !Calculate [H, rho] commutation:
+    subroutine calc_hrho_bloch(rho, hrho)
+        implicit none
+        complex(8), intent(in)     :: rho(sbe%nb, sbe%nb, sbe%nk)
+        complex(8), intent(out)    :: hrho(sbe%nb, sbe%nb, sbe%nk)
+        integer :: ik, ik_gs, idir
+        !$omp parallel do default(shared) private(ik, ik_gs, idir)
+        do ik=1, sbe%nk
+            ik_gs = get_ik_gs(gs, sbe%kvec(1:3, ik))
+            !hrho(k) = omega(k + A/c) * rho(k) 
+            hrho(:, :, ik) = gs%omega(1:sbe%nb, 1:sbe%nb, ik_gs) * rho(:, :, ik)
+            !hrho = hrho + Ac(t) * (p * rho - rho * p)
+            do idir=1, 3 !1:x, 2:y, 3:z
+                call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
+                    & dcmplx(+Ac(idir), 0d0), &
+                    & gs%p_matrix(:, :, idir, ik_gs), sbe%nb, &
+                    & rho(:, :, ik), sbe%nb, &
+                    & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
+                call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
+                    & dcmplx(-Ac(idir), 0d0), &
+                    & rho(:, :, ik), sbe%nb, &
+                    & gs%p_matrix(:, :, idir, ik_gs), sbe%nb, &
+                    & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
+            end do !idir
+        end do !ik
+        !$omp end parallel do
+        return
+    end subroutine calc_hrho_bloch
+
 
 end subroutine
 
