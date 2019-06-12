@@ -15,7 +15,6 @@ program main
     call init_sbe_gs(gs, sysname, directory, &
         & num_kgrid_gs, nstate, nelec, &
         & al_vec1, al_vec2, al_vec3)
-
         
     ! Calculate dielectric spectra and save as SYSNAME_dielec.data:
     if (out_dielec == 'y') then
@@ -25,8 +24,7 @@ program main
 
     ! Initialization of SBE solver and density matrix:
     call init_sbe(sbe, gs, num_kgrid_sbe)
-    write(*,*) sbe%nk, sbe%nb, shape(sbe%rho), sum(sbe%rho(:,:,sbe%nk))
-    write(*,*)  calc_trace(sbe, sbe%nb)
+
     write(*, '("#",99(1x,a))') "1:Step", "2:Time[au]", "3:Ac_x", "4:Ac_y", "5:Ac_z", &
         & "6:E_x", "7:E_y", "8:E_z", "9:Jmat_x", "10:Jmat_y", "11:Jmat_z", "12:n_v", "13:n_all" 
 
@@ -39,8 +37,11 @@ program main
         call dt_evolve(sbe, gs, E, Ac, dt)
 
         if (mod(it, out_rt_step) == 0) then
+            call calc_cos2_pulse(t, pulse_tw1, &
+                & rlaser_int_wcm2_1, omega1, phi_cep1, epdir_re1, epdir_im1, &
+                & Ac, E)
             call calc_current(sbe, gs, Ac, jmat)
-            write(*, '(i6,1x,f9.3,99(1x,e23.15e3))') &
+            write(*, '(i6,1x,f9.3,99(1x,es23.15e3))') &
             & it, t, Ac, E, jmat, calc_trace(sbe, sbe%nb/2), calc_trace(sbe, sbe%nb)
         end if
     end do

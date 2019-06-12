@@ -105,7 +105,7 @@ def f90fmt(f90type):
     elif "integer" in f90type:
         return "i7"
     elif "real" in f90type:
-        return "f7.3"
+        return "es12.4e3"
     else:
         raise TypeError
 
