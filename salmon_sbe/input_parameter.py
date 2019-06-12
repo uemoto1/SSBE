@@ -22,6 +22,7 @@ input_parameter = {
         'n_dielec':         ['integer',     [],     1000],
         'gamma_dielec':     ['real(8)',     [],     0.005],
         'out_rt_step' :     ['integer',     [],     10],
+        'out_dielec' :      ['character(1)',[],     "y"],
     },
     'tgrid': {
         'dt':               ['real(8)',     [],     0.08],

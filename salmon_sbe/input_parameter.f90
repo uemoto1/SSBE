@@ -18,11 +18,12 @@ module input_parameter
     real(8) :: al_vec1(1:3)
     integer :: nstate
     integer :: nelec
-    real(8) :: gamma_dielec
     integer :: out_rt_step
     integer :: n_dielec
-    real(8) :: e_min_dielec
+    character(1) :: out_dielec
     real(8) :: e_max_dielec
+    real(8) :: gamma_dielec
+    real(8) :: e_min_dielec
     integer :: num_kgrid_sbe(1:3)
     integer :: num_kgrid_gs(1:3)
 
@@ -53,11 +54,12 @@ contains
         & nstate, &
         & nelec
         namelist/analysis/ &
-        & gamma_dielec, &
         & out_rt_step, &
         & n_dielec, &
-        & e_min_dielec, &
-        & e_max_dielec
+        & out_dielec, &
+        & e_max_dielec, &
+        & gamma_dielec, &
+        & e_min_dielec
         namelist/kgrid/ &
         & num_kgrid_sbe, &
         & num_kgrid_gs
@@ -77,11 +79,12 @@ contains
         al_vec1 = 0.0
         nstate = 0
         nelec = 0
-        gamma_dielec = 0.005
         out_rt_step = 10
         n_dielec = 1000
-        e_min_dielec = 0.0
+        out_dielec = 'y'
         e_max_dielec = 1.0
+        gamma_dielec = 0.005
+        e_min_dielec = 0.0
         num_kgrid_sbe = 0
         num_kgrid_gs = 0
 
@@ -116,11 +119,12 @@ contains
         write(*, '("# al_vec1 =",99(1x,f7.3))') al_vec1
         write(*, '("# nstate =",99(1x,i7))') nstate
         write(*, '("# nelec =",99(1x,i7))') nelec
-        write(*, '("# gamma_dielec =",99(1x,f7.3))') gamma_dielec
         write(*, '("# out_rt_step =",99(1x,i7))') out_rt_step
         write(*, '("# n_dielec =",99(1x,i7))') n_dielec
-        write(*, '("# e_min_dielec =",99(1x,f7.3))') e_min_dielec
+        write(*, '("# out_dielec =",99(1x,a))') out_dielec
         write(*, '("# e_max_dielec =",99(1x,f7.3))') e_max_dielec
+        write(*, '("# gamma_dielec =",99(1x,f7.3))') gamma_dielec
+        write(*, '("# e_min_dielec =",99(1x,f7.3))') e_min_dielec
         write(*, '("# num_kgrid_sbe =",99(1x,i7))') num_kgrid_sbe
         write(*, '("# num_kgrid_gs =",99(1x,i7))') num_kgrid_gs
     end subroutine read_input

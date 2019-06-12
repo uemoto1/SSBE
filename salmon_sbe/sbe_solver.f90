@@ -299,7 +299,7 @@ subroutine init_sbe(sbe, gs, nkgrid)
         sbe%rho = 0d0
         do ik = 1, sbe%nk
             do ib = 1, sbe%nb
-                sbe%rho(ib, ib, ik) = gs%occup(ib, ik)
+                sbe%rho(ib, ib, ik) = gs%occup(ib, 1)
             end do
         end do
     end subroutine
@@ -319,7 +319,7 @@ subroutine interp_gs(gs, kvec, e_k, d_k, p_k)
     real(8) :: rkg(1:3), wkg(1:2,1:3), wj
     integer :: ikg(1:2, 1:3), j1, j2, j3, jk1, jk2, jk3, jk
     
-    ! Calculate coordinate in BZ:
+    ! Calculate reduced coordinate of kvec:
     rkg(1:3) = (matmul(kvec, gs%a_matrix) / (2d0 * pi) + 0.5d0) * gs%nkgrid + 0.5d0
     ! Grid coordinates and weights for linear interpolation:
     ikg(1, 1:3) = int(floor(rkg(1:3)))
@@ -433,6 +433,7 @@ subroutine calc_current_bloch(sbe, gs, Ac, jmat)
     end do
     !$omp end parallel do
     jmat(:) =  (jtot(:) + gs%ne * ac(:)) / gs%volume
+    
 
     return
 end subroutine calc_current_bloch
