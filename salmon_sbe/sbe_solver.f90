@@ -3,8 +3,7 @@ module sbe_solver
     use salmon_math, only: pi
     implicit none
 
-
-
+    integer, parameter :: ncycle = 10
 
     type s_sbe_gs
         !Lattice information
@@ -65,18 +64,18 @@ subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
     !Calculate b_matrix, volume_cell and volume_bz from a1..a3 vector.
     call calc_lattice_info()
 
-    allocate(gs%kvec(1:3, 1:nk))
+    allocate(gs%kvec(1:3,1:nk))
     allocate(gs%kweight(1:nk))
-    allocate(gs%eigen(1:nb, 1:nk))
-    allocate(gs%occup(1:nb, 1:nk))
-    allocate(gs%omega(1:nb, 1:nb, 1:nk))
-    allocate(gs%p_matrix(1:nb, 1:nb, 1:3, 1:nk))
-    allocate(gs%d_matrix(1:nb, 1:nb, 1:3, 1:nk))
-    allocate(gs%rv_matrix(1:nb, 1:nb, 1:nk))
-    allocate(gs%iktbl_grid(0:nkgrid(1)-1, 0:nkgrid(2)-1, 0:nkgrid(3)-1))
-    allocate(gs%ikcycle_tbl1(-nkgrid(1):2*nkgrid(1)-1))
-    allocate(gs%ikcycle_tbl2(-nkgrid(2):2*nkgrid(2)-1))
-    allocate(gs%ikcycle_tbl3(-nkgrid(3):2*nkgrid(3)-1))
+    allocate(gs%eigen(1:nb,1:nk))
+    allocate(gs%occup(1:nb,1:nk))
+    allocate(gs%omega(1:nb,1:nb,1:nk))
+    allocate(gs%p_matrix(1:nb,1:nb,1:3,1:nk))
+    allocate(gs%d_matrix(1:nb,1:nb,1:3,1:nk))
+    allocate(gs%rv_matrix(1:nb,1:nb,1:nk))
+    allocate(gs%iktbl_grid(1:nkgrid(1),1:nkgrid(2),1:nkgrid(3)))
+    allocate(gs%ikcycle_tbl1(1-nkgrid(1)*ncycle:nkgrid(1)*(ncycle+1)))
+    allocate(gs%ikcycle_tbl2(1-nkgrid(2)*ncycle:nkgrid(2)*(ncycle+1)))
+    allocate(gs%ikcycle_tbl3(1-nkgrid(3)*ncycle:nkgrid(3)*(ncycle+1)))
     
     !Retrieve eigenenergies from 'SYSNAME_eigen.data':
     call read_eigen_data()
@@ -90,7 +89,7 @@ subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
     call create_omega_d()
 
     !Initial Occupation Number
-    gs%occup(1:(ne/2), :) = 2d0 !!Experimental!!
+    gs%occup(1:(ne/2),:) = 2d0 !!Experimental!!
 
 contains
 
@@ -206,31 +205,33 @@ contains
     
     subroutine create_uniform_iktbl_grid()
         implicit none
-        integer :: ik1, ik2, ik3, ik
+        integer :: ik1, ik2, ik3, ik, icycle
         ik = 1
-        do ik3=0, nkgrid(3)-1
-            do ik2=0, nkgrid(2)-1
-                do ik1=0, nkgrid(1)-1
+        do ik3=1, nkgrid(3)
+            do ik2=1, nkgrid(2)
+                do ik1=1, nkgrid(1)
                     gs%iktbl_grid(ik1, ik2, ik3) = ik
                     ik = ik + 1
                 end do !ik1
             end do !ik2
         end do !ik3
 
-        do ik1=0, nkgrid(1)-1
-            gs%ikcycle_tbl1(ik1) = ik1
-            gs%ikcycle_tbl1(ik1+nkgrid(1)) = ik1
-            gs%ikcycle_tbl1(ik1-nkgrid(1)) = ik1
+        do ik1=1, nkgrid(1)
+            do icycle = -ncycle, ncycle
+                gs%ikcycle_tbl1(ik1 + icycle * nkgrid(1)) = ik1
+            end do
         end do
-        do ik2=0, nkgrid(2)-1
-            gs%ikcycle_tbl2(ik2) = ik2
-            gs%ikcycle_tbl2(ik2+nkgrid(2)) = ik2
-            gs%ikcycle_tbl2(ik2-nkgrid(2)) = ik2
+        
+        do ik2=1, nkgrid(2)
+            do icycle = -ncycle, ncycle
+                gs%ikcycle_tbl2(ik2 + icycle * nkgrid(2)) = ik2
+            end do
         end do
-        do ik3=0, nkgrid(2)-1
-            gs%ikcycle_tbl3(ik3) = ik3
-            gs%ikcycle_tbl3(ik3+nkgrid(2)) = ik3
-            gs%ikcycle_tbl3(ik3-nkgrid(2)) = ik3
+        
+        do ik3=1, nkgrid(3)
+            do icycle = -ncycle, ncycle
+                gs%ikcycle_tbl3(ik3 + icycle * nkgrid(3)) = ik3
+            end do
         end do
     end subroutine create_uniform_iktbl_grid
 
@@ -308,64 +309,60 @@ end subroutine
 
 
 
-subroutine interp(gs, kvec, ek, dk, pk)
+subroutine interp_gs(gs, kvec, e_k, d_k, p_k)
     implicit none
     type(s_sbe_gs), intent(in) :: gs
     real(8), intent(in) :: kvec(3)
-    real(8), intent(out) :: ek(gs%nb)
-    complex(8), intent(out) :: dk(gs%nb, gs%nb, 3)
-    complex(8), intent(out) :: pk(gs%nb, gs%nb, 3)
-
-    real(8) :: tka(3) 
-    real(8) :: rkgrid(3), Wi(3), Wj(3)
-    integer :: ikgrid(3), jkgrid(3), ikg(3), jkg(3)
+    real(8), intent(out), optional :: e_k(gs%nb)
+    complex(8), intent(out), optional :: d_k(gs%nb, gs%nb, 1:3)
+    complex(8), intent(out), optional :: p_k(gs%nb, gs%nb, 1:3)
+    real(8) :: rkg(1:3), wkg(1:2,1:3), wj
+    integer :: ikg(1:2, 1:3), j1, j2, j3, jk1, jk2, jk3, jk
     
-    tka = (1.0 / (2d0 * pi)) * matmul(kvec, gs%a_matrix) + 0.5
+    ! Calculate coordinate in BZ:
+    rkg(1:3) = (matmul(kvec, gs%a_matrix) / (2d0 * pi) + 0.5d0) * gs%nkgrid + 0.5d0
+    ! Grid coordinates and weights for linear interpolation:
+    ikg(1, 1:3) = int(floor(rkg(1:3)))
+    ikg(2, 1:3) = ikg(1, 1:3) + 1
+    wkg(2, 1:3) = rkg(1:3) - ikg(1, 1:3)
+    wkg(1, 1:3) = 1d0 - wkg(2, 1:3)
+    
+    if (present(e_k)) e_k = 0d0
+    if (present(d_k)) d_k = 0d0
+    if (present(p_k)) p_k = 0d0
 
-    rkgrid = (tka - floor(tka)) * gs%nkgrid
-    ikgrid = int(floor(rkgrid - 0.5d0))
-    jkgrid = ikgrid + 1
-    wj = rkgrid - (floor(rkgrid - 0.5d0) + 0.5d0)
-    wi = 1d0 - wj
-    ikg(1) = gs%ikcycle_tbl1(ikgrid(1))
-    ikg(2) = gs%ikcycle_tbl2(ikgrid(2))
-    ikg(3) = gs%ikcycle_tbl3(ikgrid(3))
-    jkg(1) = gs%ikcycle_tbl1(jkgrid(1))
-    jkg(2) = gs%ikcycle_tbl2(jkgrid(2))
-    jkg(3) = gs%ikcycle_tbl3(jkgrid(3))
-
-    ek(:) = &
-    +wi(1)*wi(2)*wi(3)*gs%eigen(:,gs%iktbl_grid(ikg(1),ikg(2),ikg(3))) &
-    +wi(1)*wi(2)*wj(3)*gs%eigen(:,gs%iktbl_grid(ikg(1),ikg(2),jkg(3))) &
-    +wi(1)*wj(2)*wi(3)*gs%eigen(:,gs%iktbl_grid(ikg(1),jkg(2),ikg(3))) &
-    +wi(1)*wj(2)*wj(3)*gs%eigen(:,gs%iktbl_grid(ikg(1),jkg(2),jkg(3))) &
-    +wj(1)*wi(2)*wi(3)*gs%eigen(:,gs%iktbl_grid(jkg(1),ikg(2),ikg(3))) &
-    +wj(1)*wi(2)*wj(3)*gs%eigen(:,gs%iktbl_grid(jkg(1),ikg(2),jkg(3))) &
-    +wj(1)*wj(2)*wi(3)*gs%eigen(:,gs%iktbl_grid(jkg(1),jkg(2),ikg(3))) &
-    +wj(1)*wj(2)*wj(3)*gs%eigen(:,gs%iktbl_grid(jkg(1),jkg(2),jkg(3)))
-
-    dk(:,:,1:3) = &
-    +wi(1)*wi(2)*wi(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),ikg(2),ikg(3))) &
-    +wi(1)*wi(2)*wj(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),ikg(2),jkg(3))) &
-    +wi(1)*wj(2)*wi(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),jkg(2),ikg(3))) &
-    +wi(1)*wj(2)*wj(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),jkg(2),jkg(3))) &
-    +wj(1)*wi(2)*wi(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),ikg(2),ikg(3))) &
-    +wj(1)*wi(2)*wj(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),ikg(2),jkg(3))) &
-    +wj(1)*wj(2)*wi(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),jkg(2),ikg(3))) &
-    +wj(1)*wj(2)*wj(3)*gs%d_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),jkg(2),jkg(3)))
-
-    pk(:,:,1:3) = &
-    +wi(1)*wi(2)*wi(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),ikg(2),ikg(3))) &
-    +wi(1)*wi(2)*wj(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),ikg(2),jkg(3))) &
-    +wi(1)*wj(2)*wi(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),jkg(2),ikg(3))) &
-    +wi(1)*wj(2)*wj(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(ikg(1),jkg(2),jkg(3))) &
-    +wj(1)*wi(2)*wi(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),ikg(2),ikg(3))) &
-    +wj(1)*wi(2)*wj(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),ikg(2),jkg(3))) &
-    +wj(1)*wj(2)*wi(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),jkg(2),ikg(3))) &
-    +wj(1)*wj(2)*wj(3)*gs%p_matrix(:,:,1:3,gs%iktbl_grid(jkg(1),jkg(2),jkg(3)))
-
+    do j3 = 1, 2
+        jk3 = gs%ikcycle_tbl3(ikg(j3, 3))
+        do j2 = 1, 2
+            jk2 = gs%ikcycle_tbl2(ikg(j2, 2))
+            do j1 = 1, 2
+                jk1 = gs%ikcycle_tbl1(ikg(j1, 1))
+                ! Calculate interpolate coefficients:
+                jk = gs%iktbl_grid(jk1, jk2, jk3)
+                wj = wkg(j1, 1) * wkg(j2, 2) * wkg(j3, 3)
+                ! Interpolate e, d and p at given point:
+                if (present(e_k))  e_k(:) = e_k(:) + wj * gs%eigen(:, jk)
+                if (present(d_k))  d_k(:, :, :) = d_k(:, :, :) + wj * gs%d_matrix(:, :, :, jk)
+                if (present(p_k))  p_k(:, :, :) = p_k(:, :, :) + wj * gs%p_matrix(:, :, :, jk)
+            end do
+        end do
+    end do
     return
-end subroutine interp
+end subroutine interp_gs
+
+
+subroutine band_test(gs)
+    implicit none
+    type(s_sbe_gs), intent(in) :: gs
+    integer :: i
+    real(8) :: k(3), e(gs%nb)
+
+    do i = -100, 100
+        k(:) = (i * 0.01) * gs%b_matrix(1, :)
+        call interp_gs(gs, k, e_k=e)
+        write(*,*) i, e
+    end do
+end subroutine band_test
 
 
 
@@ -378,17 +375,15 @@ subroutine calc_current(sbe, gs, Ac, jmat)
     type(s_sbe_gs), intent(in) :: gs
     real(8), intent(in) :: Ac(1:3)
     real(8), intent(out) :: jmat(1:3)
-    real(8) :: ek(sbe%nb)
     complex(8) :: pk(sbe%nb, sbe%nb, 3)
-    complex(8) :: dk(sbe%nb, sbe%nb, 3)
     integer :: ik, idir, ib, jb
     real(8) :: jtot(1:3)
 
     jtot(1:3) = 0d0
 
-    !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk,pk) reduction(+:jtot)
+    !$omp parallel do default(shared) private(ik,ib,jb,idir,pk) reduction(+:jtot)
     do ik=1, sbe%nk
-        call interp(gs, sbe%kvec(1:3, ik) + Ac(1:3), ek, dk, pk)
+        call interp_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3), p_k=pk)
         do idir=1, 3
             do jb=1, sbe%nb
                 do ib=1, sbe%nb
@@ -418,17 +413,15 @@ subroutine calc_current_bloch(sbe, gs, Ac, jmat)
     type(s_sbe_gs), intent(in) :: gs
     real(8), intent(in) :: Ac(1:3)
     real(8), intent(out) :: jmat(1:3)
-    real(8) :: ek(sbe%nb)
     complex(8) :: pk(sbe%nb, sbe%nb, 3)
-    complex(8) :: dk(sbe%nb, sbe%nb, 3)
     integer :: ik, idir, ib, jb
     real(8) :: jtot(1:3)
 
     jtot(1:3) = 0d0
 
-    !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk,pk) reduction(+:jtot)
+    !$omp parallel do default(shared) private(ik,ib,jb,idir,pk) reduction(+:jtot)
     do ik=1, sbe%nk
-        call interp(gs, sbe%kvec(1:3, ik) + Ac(1:3), ek, dk, pk)
+        call interp_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3), p_k=pk)
         do idir=1, 3
             do jb=1, sbe%nb
                 do ib=1, sbe%nb
@@ -486,12 +479,11 @@ contains
         complex(8), intent(in)     :: rho(sbe%nb, sbe%nb, sbe%nk)
         complex(8), intent(out)    :: hrho(sbe%nb, sbe%nb, sbe%nk)
         real(8) :: ek(sbe%nb)
-        complex(8) :: pk(sbe%nb, sbe%nb, 3)
         complex(8) :: dk(sbe%nb, sbe%nb, 3)
         integer :: ik, idir, ib, jb
-        !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk,pk)
+        !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk)
         do ik=1, sbe%nk
-            call interp(gs, sbe%kvec(1:3, ik) + Ac(1:3), ek, dk, pk)
+            call interp_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3),  e_k=ek, d_k=dk)
             !hrho(k) = omega(k + A/c) * rho(k) 
             do ib = 1, sbe%nb
                 do jb = 1, sbe%nb
@@ -522,23 +514,29 @@ contains
         implicit none
         complex(8), intent(in)     :: rho(sbe%nb, sbe%nb, sbe%nk)
         complex(8), intent(out)    :: hrho(sbe%nb, sbe%nb, sbe%nk)
-        integer :: ik, ik_gs, idir
-        !$omp parallel do default(shared) private(ik, ik_gs, idir)
+        integer :: ik, ib, jb, idir
+        real(8) :: ek(sbe%nb)
+        complex(8) :: pk(sbe%nb, sbe%nb, 3)
+        !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,pk)
         do ik=1, sbe%nk
-            ik_gs = get_ik_gs(gs, sbe%kvec(1:3, ik))
+            call interp_gs(gs, sbe%kvec(1:3, ik),  e_k=ek, p_k=pk)
             !hrho(k) = omega(k + A/c) * rho(k) 
-            hrho(:, :, ik) = gs%omega(1:sbe%nb, 1:sbe%nb, ik_gs) * rho(:, :, ik)
+            do ib = 1, sbe%nb
+                do jb = 1, sbe%nb
+                    hrho(ib, jb, ik) = (ek(ib) - ek(jb)) * rho(ib, jb, ik)
+                end do
+            end do
             !hrho = hrho + Ac(t) * (p * rho - rho * p)
             do idir=1, 3 !1:x, 2:y, 3:z
                 call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
                     & dcmplx(+Ac(idir), 0d0), &
-                    & gs%p_matrix(:, :, idir, ik_gs), sbe%nb, &
+                    & pk, sbe%nb, &
                     & rho(:, :, ik), sbe%nb, &
                     & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
                 call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
                     & dcmplx(-Ac(idir), 0d0), &
                     & rho(:, :, ik), sbe%nb, &
-                    & gs%p_matrix(:, :, idir, ik_gs), sbe%nb, &
+                    & pk, sbe%nb, &
                     & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
             end do !idir
         end do !ik

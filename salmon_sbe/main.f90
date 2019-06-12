@@ -15,9 +15,8 @@ program main
     call init_sbe_gs(gs, sysname, directory, &
         & num_kgrid_gs, nstate, nelec, &
         & al_vec1, al_vec2, al_vec3)
-    
-    
 
+        
     ! Calculate dielectric spectra and save as SYSNAME_dielec.data:
     call calc_dielec(trim(directory) // trim(sysname) // '_dielec.data', &
         & gs, e_min_dielec, e_max_dielec, n_dielec, gamma_dielec)
