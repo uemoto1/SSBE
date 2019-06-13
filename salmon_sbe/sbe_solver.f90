@@ -482,7 +482,7 @@ contains
         real(8) :: ek(sbe%nb)
         complex(8) :: dk(sbe%nb, sbe%nb, 3)
         integer :: ik, idir, ib, jb
-        !!$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk)
+        !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk)
         do ik=1, sbe%nk
             call interp_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3),  e_k=ek, d_k=dk)
             !hrho(k) = omega(k + A/c) * rho(k) 
@@ -505,7 +505,7 @@ contains
                     & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
             end do !idir
         end do !ik
-        !!$omp end parallel do
+        !$omp end parallel do
         return
     end subroutine calc_hrho
 
