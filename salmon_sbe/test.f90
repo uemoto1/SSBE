@@ -1,3 +1,7 @@
+module test
+    implicit none
+    contains
+
 subroutine calc_dielec(file_dielec_data, gs, e_min, e_max, ne, gamma)
     use sbe_solver
     use salmon_math, only: pi
@@ -44,15 +48,23 @@ subroutine test_interp(gs)
     type(s_sbe_gs), intent(in) :: gs
 
     integer :: ik
-    real(8) :: tka(3), rk(3)
+    real(8) :: kv(3), ek(gs%nb)
+    complex(8) :: dk(gs%nb, gs%nb, 3), pk(gs%nb, gs%nb, 3)
 
-    do ik = 1, gs%nk
-        tka = (1.0 / (2d0 * pi)) * matmul(gs%kvec(1:3, ik), gs%a_matrix) 
-        rk = (tka + 0.5) * gs%nkgrid
-        write(*, '(i6,3(1x,f12.5))') ik, rk
+    write(99,*) "# Total size", gs%nb
+
+    do ik = -100, 100
+        kv(:) = gs%b_matrix(1,:) * ik * 0.01
+        call interp_gs(gs, kv, e_k=ek, d_k=dk, p_k=pk)
+        write(99, *) ik, ek
+        write(98, *) ik, real(pk(1, 2, 1)), aimag(pk(1, 2, 1)), abs(pk(1, 2, 1))
+        write(97, *) ik, real(pk(4, 5, 1)), aimag(pk(4, 5, 1)), abs(pk(4, 5, 1))
     end do
+
+        
 end subroutine test_interp
 
 
 
 
+end module test

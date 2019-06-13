@@ -2,6 +2,7 @@ program main
     use sbe_solver
     use input_parameter
     use pulse
+    use test
     implicit none
 
     type(s_sbe) :: sbe
@@ -15,6 +16,8 @@ program main
     call init_sbe_gs(gs, sysname, directory, &
         & num_kgrid_gs, nstate, nelec, &
         & al_vec1, al_vec2, al_vec3)
+    
+    call test_interp(gs); !stop
         
     ! Calculate dielectric spectra and save as SYSNAME_dielec.data:
     if (out_dielec == 'y') then

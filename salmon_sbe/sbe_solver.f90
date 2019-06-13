@@ -185,7 +185,7 @@ contains
     subroutine create_omega_d()
         implicit none
         integer :: ik, ib, jb
-        real(8), parameter :: epsilon = 1d-2
+        real(8), parameter :: epsilon = 0.04
         complex(8), parameter :: zi = dcmplx(0d0, 1d0)
         do ik=1, nk
             do ib=1, nb
@@ -315,39 +315,47 @@ subroutine interp_gs(gs, kvec, e_k, d_k, p_k)
     complex(8), intent(out), optional :: d_k(gs%nb, gs%nb, 1:3)
     complex(8), intent(out), optional :: p_k(gs%nb, gs%nb, 1:3)
     real(8) :: rkg(1:3), wkg(1:2,1:3), wj
-    integer :: ikg(1:2, 1:3), j1, j2, j3, jk1, jk2, jk3, jk
+    integer :: ikg(1:2, 1:3), jkg(1:3), j1, j2, j3, jk1, jk2, jk3, jk
     
     ! Calculate reduced coordinate of kvec:
     rkg(1:3) = (matmul(kvec, gs%a_matrix) / (2d0 * pi) + 0.5d0) * gs%nkgrid + 0.5d0
-    ! Grid coordinates and weights for linear interpolation:
-    ikg(1, 1:3) = int(floor(rkg(1:3)))
-    ikg(2, 1:3) = ikg(1, 1:3) + 1
-    wkg(2, 1:3) = rkg(1:3) - ikg(1, 1:3)
-    wkg(1, 1:3) = 1d0 - wkg(2, 1:3)
-    
-    if (present(e_k)) e_k = 0d0
-    if (present(d_k)) d_k = 0d0
-    if (present(p_k)) p_k = 0d0
 
-    ! write(*,*) kvec, rkg, "k"
-    do j3 = 1, 2
-        jk3 = gs%ikcycle_tbl3(ikg(j3, 3))
-        do j2 = 1, 2
-            jk2 = gs%ikcycle_tbl2(ikg(j2, 2))
-            do j1 = 1, 2
-                jk1 = gs%ikcycle_tbl1(ikg(j1, 1))
-                ! write(*,*) j1, j2, j3, jk1, jk2, jk3, "j"
-                ! write(*,*) wkg(j1, 1), wkg(j2, 2) , wkg(j3, 3), wkg(j1, 1) * wkg(j2, 2) * wkg(j3, 3), "w"
-                ! Calculate interpolate coefficients:
-                jk = gs%iktbl_grid(jk1, jk2, jk3)
-                wj = wkg(j1, 1) * wkg(j2, 2) * wkg(j3, 3)
-                ! Interpolate e, d and p at given point:
-                if (present(e_k))  e_k(:) = e_k(:) + wj * gs%eigen(:, jk)
-                if (present(d_k))  d_k(:, :, :) = d_k(:, :, :) + wj * gs%d_matrix(:, :, :, jk)
-                if (present(p_k))  p_k(:, :, :) = p_k(:, :, :) + wj * gs%p_matrix(:, :, :, jk)
+    if (present(e_k)) then
+        ! Grid coordinates and weights for linear interpolation:
+        ikg(1, 1:3) = int(floor(rkg(1:3)))      ! Lower index of data point
+        ikg(2, 1:3) = ikg(1, 1:3) + 1           ! Upper index of data point
+        wkg(2, 1:3) = rkg(1:3) - ikg(1, 1:3)
+        wkg(1, 1:3) = 1d0 - wkg(2, 1:3)
+
+        e_k = 0d0
+
+        do j3 = 1, 2
+            jk3 = gs%ikcycle_tbl3(ikg(j3, 3))
+            do j2 = 1, 2
+                jk2 = gs%ikcycle_tbl2(ikg(j2, 2))
+                do j1 = 1, 2
+                    jk1 = gs%ikcycle_tbl1(ikg(j1, 1))
+                    ! write(*,*) j1, j2, j3, jk1, jk2, jk3, "j"
+                    ! write(*,*) wkg(j1, 1), wkg(j2, 2) , wkg(j3, 3), wkg(j1, 1) * wkg(j2, 2) * wkg(j3, 3), "w"
+                    ! Calculate interpolate coefficients:
+                    jk = gs%iktbl_grid(jk1, jk2, jk3)
+                    wj = wkg(j1, 1) * wkg(j2, 2) * wkg(j3, 3)
+                    ! Interpolate e, d and p at given point:
+                    e_k(:) = e_k(:) + wj * gs%eigen(:, jk)
+                end do
             end do
         end do
-    end do
+    end if
+
+    ! Nearlest grid coordinate
+    jkg(1:3) = int(floor(rkg(1:3) + 0.5d0))    ! Rounded index of data point
+    jk3 = gs%ikcycle_tbl3(jkg(3))
+    jk2 = gs%ikcycle_tbl2(jkg(2))
+    jk1 = gs%ikcycle_tbl1(jkg(1))
+    jk = gs%iktbl_grid(jk1, jk2, jk3)
+    if (present(d_k)) d_k(:, :, :) = gs%d_matrix(:, :, :, jk)
+    if (present(p_k)) p_k(:, :, :) = gs%p_matrix(:, :, :, jk)
+
     return
 end subroutine interp_gs
 
