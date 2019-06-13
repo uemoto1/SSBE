@@ -1,5 +1,5 @@
 # SSBE
-Example Implementation of Semiconductor Bloch Equation for SALMON program
+Experimental Implementation of SALMON's Semiconductor Bloch Equation
 
 ## Structure
 
