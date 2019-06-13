@@ -185,7 +185,7 @@ contains
     subroutine create_omega_d()
         implicit none
         integer :: ik, ib, jb
-        real(8), parameter :: epsilon = 1d-4
+        real(8), parameter :: epsilon = 1d-2
         complex(8), parameter :: zi = dcmplx(0d0, 1d0)
         do ik=1, nk
             do ib=1, nb
@@ -297,10 +297,8 @@ subroutine init_sbe(sbe, gs, nkgrid)
         integer :: ik, ib
         ! Initial state of density matrix:
         sbe%rho = 0d0
-        do ik = 1, sbe%nk
-            do ib = 1, sbe%nb
-                sbe%rho(ib, ib, ik) = gs%occup(ib, 1)
-            end do
+        do ib = 1, sbe%nb
+            sbe%rho(ib, ib, :) = gs%occup(ib, 1)
         end do
     end subroutine
 
@@ -331,12 +329,15 @@ subroutine interp_gs(gs, kvec, e_k, d_k, p_k)
     if (present(d_k)) d_k = 0d0
     if (present(p_k)) p_k = 0d0
 
+    ! write(*,*) kvec, rkg, "k"
     do j3 = 1, 2
         jk3 = gs%ikcycle_tbl3(ikg(j3, 3))
         do j2 = 1, 2
             jk2 = gs%ikcycle_tbl2(ikg(j2, 2))
             do j1 = 1, 2
                 jk1 = gs%ikcycle_tbl1(ikg(j1, 1))
+                ! write(*,*) j1, j2, j3, jk1, jk2, jk3, "j"
+                ! write(*,*) wkg(j1, 1), wkg(j2, 2) , wkg(j3, 3), wkg(j1, 1) * wkg(j2, 2) * wkg(j3, 3), "w"
                 ! Calculate interpolate coefficients:
                 jk = gs%iktbl_grid(jk1, jk2, jk3)
                 wj = wkg(j1, 1) * wkg(j2, 2) * wkg(j3, 3)
@@ -394,7 +395,6 @@ subroutine calc_current(sbe, gs, Ac, jmat)
         end do
     end do
     !$omp end parallel do
-    jmat(:) =  (jtot(:) + gs%ne * ac(:)) / gs%volume
     jmat(:) =  (jtot(:) ) / gs%volume
 
     return
@@ -482,7 +482,7 @@ contains
         real(8) :: ek(sbe%nb)
         complex(8) :: dk(sbe%nb, sbe%nb, 3)
         integer :: ik, idir, ib, jb
-        !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk)
+        !!$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk)
         do ik=1, sbe%nk
             call interp_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3),  e_k=ek, d_k=dk)
             !hrho(k) = omega(k + A/c) * rho(k) 
@@ -505,7 +505,7 @@ contains
                     & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
             end do !idir
         end do !ik
-        !$omp end parallel do
+        !!$omp end parallel do
         return
     end subroutine calc_hrho
 
