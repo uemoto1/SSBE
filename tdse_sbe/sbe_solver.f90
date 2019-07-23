@@ -374,47 +374,6 @@ subroutine band_test(gs)
 end subroutine band_test
 
 
-
-
-
-
-subroutine calc_current(sbe, gs, Ac, jmat)
-    implicit none
-    type(s_sbe), intent(in) :: sbe
-    type(s_sbe_gs), intent(in) :: gs
-    real(8), intent(in) :: Ac(1:3)
-    real(8), intent(out) :: jmat(1:3)
-    complex(8) :: pk(sbe%nb, sbe%nb, 3)
-    integer :: ik, idir, ib, jb
-    real(8) :: jtot(1:3)
-
-    jtot(1:3) = 0d0
-
-    !$omp parallel do default(shared) private(ik,ib,jb,idir,pk) reduction(+:jtot)
-    do ik=1, sbe%nk
-        call interp_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3), p_k=pk)
-        do idir=1, 3
-            do jb=1, sbe%nb
-                do ib=1, sbe%nb
-                    jtot(idir) = jtot(idir) + sbe%kweight(ik) &
-                        & * real(pk(ib, jb, idir) * sbe%rho(jb, ib, ik)) 
-                end do
-            end do
-        end do
-    end do
-    !$omp end parallel do
-    jmat(:) =  (jtot(:) ) / gs%volume
-
-    return
-end subroutine calc_current
-
-
-
-
-
-
-
-
 subroutine calc_current_bloch(sbe, gs, Ac, jmat)
     implicit none
     type(s_sbe), intent(in) :: sbe
@@ -469,10 +428,10 @@ subroutine dt_evolve(sbe, gs, E, Ac, dt)
     complex(8) :: hrho3(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
     complex(8) :: hrho4(1:sbe%nb, 1:sbe%nb, 1:sbe%nk)
 
-    call calc_hrho(sbe%rho, hrho1)
-    call calc_hrho(hrho1, hrho2)
-    call calc_hrho(hrho2, hrho3)
-    call calc_hrho(hrho3, hrho4)
+    call calc_hrho_bloch(sbe%rho, hrho1)
+    call calc_hrho_bloch(hrho1, hrho2)
+    call calc_hrho_bloch(hrho2, hrho3)
+    call calc_hrho_bloch(hrho3, hrho4)
 
     sbe%rho = sbe%rho + hrho1 * (- zi * dt)
     sbe%rho = sbe%rho + hrho2 * (- zi * dt) ** 2 * (1d0 / 2d0)
@@ -481,41 +440,6 @@ subroutine dt_evolve(sbe, gs, E, Ac, dt)
     return
 
 contains
-
-    !Calculate [H, rho] commutation:
-    subroutine calc_hrho(rho, hrho)
-        implicit none
-        complex(8), intent(in)     :: rho(sbe%nb, sbe%nb, sbe%nk)
-        complex(8), intent(out)    :: hrho(sbe%nb, sbe%nb, sbe%nk)
-        real(8) :: ek(sbe%nb)
-        complex(8) :: dk(sbe%nb, sbe%nb, 3)
-        integer :: ik, idir, ib, jb
-        !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,dk)
-        do ik=1, sbe%nk
-            call interp_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3),  e_k=ek, d_k=dk)
-            !hrho(k) = omega(k + A/c) * rho(k) 
-            do ib = 1, sbe%nb
-                do jb = 1, sbe%nb
-                    hrho(ib, jb, ik) = (ek(ib) - ek(jb)) * rho(ib, jb, ik)
-                end do
-            end do
-            !hrho = hrho - E(t) * (d * rho - rho * d)
-            do idir=1, 3 !1:x, 2:y, 3:z
-                call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
-                    & dcmplx(-E(idir), 0d0), &
-                    & dk(:, :, idir), sbe%nb, &
-                    & rho(:, :, ik), sbe%nb, &
-                    & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
-                call ZHEMM('L', 'U', sbe%nb, sbe%nb, &
-                    & dcmplx(+E(idir), 0d0), &
-                    & rho(:, :, ik), sbe%nb, &
-                    & dk(:, :, idir), sbe%nb, &
-                    & dcmplx(1d0, 0d0), hrho(:, :, ik), sbe%nb)
-            end do !idir
-        end do !ik
-        !$omp end parallel do
-        return
-    end subroutine calc_hrho
 
 
     !Calculate [H, rho] commutation:

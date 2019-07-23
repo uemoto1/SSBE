@@ -43,7 +43,7 @@ program main
             call calc_cos2_pulse(t, pulse_tw1, &
                 & rlaser_int_wcm2_1, omega1, phi_cep1, epdir_re1, epdir_im1, &
                 & Ac, E)
-            call calc_current(sbe, gs, Ac, jmat)
+            call calc_current_bloch(sbe, gs, Ac, jmat)
             write(*, '(i6,1x,f9.3,99(1x,es23.15e3))') &
             & it, t, Ac, E, jmat, calc_trace(sbe, sbe%nb/2), calc_trace(sbe, sbe%nb)
         end if
