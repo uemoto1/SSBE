@@ -43,28 +43,5 @@ end subroutine calc_dielec
 
 
 
-subroutine test_interp(gs)
-    use sbe_solver
-    type(s_sbe_gs), intent(in) :: gs
-
-    integer :: ik
-    real(8) :: kv(3), ek(gs%nb)
-    complex(8) :: dk(gs%nb, gs%nb, 3), pk(gs%nb, gs%nb, 3)
-
-    write(99,*) "# Total size", gs%nb
-
-    do ik = -100, 100
-        kv(:) = gs%b_matrix(1,:) * ik * 0.01
-        call interp_gs(gs, kv, e_k=ek, d_k=dk, p_k=pk)
-        write(99, *) ik, ek
-        write(98, *) ik, real(pk(1, 2, 1)), aimag(pk(1, 2, 1)), abs(pk(1, 2, 1))
-        write(97, *) ik, real(pk(4, 5, 1)), aimag(pk(4, 5, 1)), abs(pk(4, 5, 1))
-    end do
-
-        
-end subroutine test_interp
-
-
-
 
 end module test

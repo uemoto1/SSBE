@@ -19,22 +19,13 @@ module sbe_solver
         real(8), allocatable :: omega(:, :, :)
         complex(8), allocatable :: p_matrix(:, :, :, :)
         complex(8), allocatable :: d_matrix(:, :, :, :)
-        complex(8), allocatable :: rv_matrix(:, :, :)
-
-        !k-space grid and geometry information
-        !NOTE: prepred for uniformally distributed k-grid....
-        integer :: nkgrid(1:3)
-        integer, allocatable :: iktbl_grid(:, :, :)
-        integer, allocatable :: ikcycle_tbl1(:), ikcycle_tbl2(:), ikcycle_tbl3(:)
     end type
 
 
     type s_sbe
         !k-points for real-time SBE calculation
         integer :: nk, nb
-        real(8), allocatable :: kvec(:, :), kweight(:)
         complex(8), allocatable :: rho(:, :, :)
-        ! integer :: ik_s, ik_e, icomm_k
     end type
 
 
@@ -42,57 +33,31 @@ module sbe_solver
 contains
 
 
-subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3)
+subroutine init_sbe_gs(gs, directory, ne, a1, a2, a3)
     use salmon_file, only: open_filehandle
     implicit none
     type(s_sbe_gs), intent(inout) :: gs
-    character(*), intent(in) :: sysname
     character(*), intent(in) :: directory
-    integer, intent(in) :: nkgrid(1:3)
-    integer, intent(in) :: nb
     integer, intent(in) :: ne
     real(8), intent(in) :: a1(1:3), a2(1:3), a3(1:3)
-    integer :: nk
-
-    nk = nkgrid(1) * nkgrid(2) * nkgrid(3)
-
-    gs%nk = nk
-    gs%nb = nb
-    gs%ne = ne
-    gs%nkgrid(1:3) = nkgrid(1:3)
 
     !Calculate b_matrix, volume_cell and volume_bz from a1..a3 vector.
-    call calc_lattice_info()
-
-    allocate(gs%kvec(1:3,1:nk))
-    allocate(gs%kweight(1:nk))
-    allocate(gs%eigen(1:nb,1:nk))
-    allocate(gs%occup(1:nb,1:nk))
-    allocate(gs%omega(1:nb,1:nb,1:nk))
-    allocate(gs%p_matrix(1:nb,1:nb,1:3,1:nk))
-    allocate(gs%d_matrix(1:nb,1:nb,1:3,1:nk))
-    allocate(gs%rv_matrix(1:nb,1:nb,1:nk))
-    allocate(gs%iktbl_grid(1:nkgrid(1),1:nkgrid(2),1:nkgrid(3)))
-    allocate(gs%ikcycle_tbl1(1-nkgrid(1)*ncycle:nkgrid(1)*(ncycle+1)))
-    allocate(gs%ikcycle_tbl2(1-nkgrid(2)*ncycle:nkgrid(2)*(ncycle+1)))
-    allocate(gs%ikcycle_tbl3(1-nkgrid(3)*ncycle:nkgrid(3)*(ncycle+1)))
-    
-    !Retrieve eigenenergies from 'SYSNAME_eigen.data':
-    call read_eigen_data()
-    !Retrieve k-points from 'SYSNAME_k.data':
+    call calc_lattice_info()    
+    !Retrieve k-points from 'kpoint.txt':
     call read_k_data()
-    !Retrieve transition matrix from 'SYSNAME_tm.data':
+    !Retrieve eigenenergies from 'eigen.txt':
+    call read_eigen_data()
+    !Retrieve transition matrix from 'pmatrix.txt':
     call read_tm_data()
-    !Calculate iktbl_grid for uniform (non-symmetric) k-grid:
-    call create_uniform_iktbl_grid()
     !Calculate omega and d_matrix (neglecting diagonal part):
     call create_omega_d()
 
     !Initial Occupation Number
+    allocate(gs%occup(1:gs%nb, 1:gs%nk))
+    gs%occup = 0
     gs%occup(1:(ne/2),:) = 2d0 !!Experimental!!
 
 contains
-
 
     subroutine calc_lattice_info()
         implicit none
@@ -123,55 +88,65 @@ contains
     end subroutine calc_lattice_info
 
 
+    subroutine read_k_data()
+        implicit none
+        integer :: fh, i, ik, iik
+
+        fh = open_filehandle(trim(directory) // 'kpoint.txt', 'old')
+        read(fh, *) gs%nk ! Number of k-points in BZ
+        allocate(gs%kvec(1:3, 1:gs%nk))
+        do ik=1, gs%nk
+            read(fh, *) iik, gs%kvec(1:3, ik)
+            if (ik .ne. iik) &
+                & stop "ERROR! Invalid kpoint.txt"
+        end do !ik
+        close(fh)
+        ! k-point integration weights:
+        allocate(gs%kweight(1:gs%nk))
+        gs%kweight = 1d0 / gs%nk
+    end subroutine read_k_data
+
+
     subroutine read_eigen_data()
         implicit none
-        character(256) :: dummy
-        integer :: fh, i, ik, ib, idummy
+        integer :: fh, i, ik, ib, iik, iib
 
-        fh = open_filehandle(trim(directory) // trim(sysname) // '_eigen.data', 'old')
-        do i=1, 3
-            read(fh, '(a)') dummy !Skip
-        end do
-        do ik=1, nk
-            read(fh, '(a)') dummy !Skip
-            do ib=1, nb
-                read(fh, *) idummy, gs%eigen(ib, ik)
+        fh = open_filehandle(trim(directory)  // 'eigen.txt', 'old')
+        read(fh, *) gs%nk, gs%nb
+        allocate(gs%eigen(1:gs%nb, 1:gs%nk))
+        do ik=1, gs%nk
+            do ib=1, gs%nb
+                read(*, *) iik, iib, gs%eigen(ib, ik)
+                if ((ik .ne. iik) &
+                    & .or. (ib .ne. iib)) &
+                    & stop "ERROR! Invalid eigen.txt"
             end do
         end do
         close(fh)
     end subroutine read_eigen_data
 
 
-    subroutine read_k_data()
-        implicit none
-        character(256) :: dummy
-        integer :: fh, i, ik, idummy
 
-        fh = open_filehandle(trim(directory) // trim(sysname) // '_k.data', 'old')
-        do i=1, 8
-            read(fh, '(a)') dummy !Skip
-        end do
-        do ik=1, nk
-            read(fh, *) idummy, gs%kvec(1:3, ik), gs%kweight(ik)
-        end do !ik
-        close(fh)
-    end subroutine read_k_data
 
 
     subroutine read_tm_data()
         implicit none
         character(256) :: dummy
-        integer :: fh, i, ik, ib, jb, idummy
+        integer :: fh, i, ik, ib, jb, iik, iib, jjb
         real(8) :: tmp(1:6)
 
-        fh = open_filehandle(trim(directory) // trim(sysname) // '_tm.data', 'old')
-        do i=1, 3
-            read(fh, '(a)') dummy !Skip
-        end do
-        do ik=1, nk
-            do ib=1, nb
-                do jb=1, nb
-                    read(fh, *) idummy, idummy, idummy, tmp(1:6)
+        fh = open_filehandle(trim(directory) // 'pmatrix.txt', 'old')
+        read(fh, *) gs%nk, gs%nb
+        allocate(gs%p_matrix(1:gs%nb, 1:gs%nb, 1:3, 1:gs%nk))
+
+        do ik=1, gs%nk
+            do ib=1, gs%nb
+                do jb=1, gs%nb
+                    read(fh, *) iik, iib, jjb, tmp(1:6)
+                    if ((ik .ne. iik) &
+                        & .or. (ib .ne. iib) &
+                        & .or. (jb .ne. jjb)) &
+                        & stop "ERROR! Invalid pmatrix.txt"
                     gs%p_matrix(ib, jb, 1, ik) = dcmplx(tmp(1), tmp(2))
                     gs%p_matrix(ib, jb, 2, ik) = dcmplx(tmp(3), tmp(4))
                     gs%p_matrix(ib, jb, 3, ik) = dcmplx(tmp(5), tmp(6))
@@ -187,9 +162,11 @@ contains
         integer :: ik, ib, jb
         real(8), parameter :: epsilon = 0.04
         complex(8), parameter :: zi = dcmplx(0d0, 1d0)
-        do ik=1, nk
-            do ib=1, nb
-                do jb=1, nb
+        allocate(gs%omega(1:gs%nb, 1:gs%nb, 1:gs%nk))
+        allocate(gs%d_matrix(1:gs%nb, 1:gs%nb, 1:3, 1:gs%nk))
+        do ik=1, gs%nk
+            do ib=1, gs%nb
+                do jb=1, gs%nb
                     gs%omega(ib, jb, ik) = gs%eigen(ib, ik) - gs%eigen(jb, ik)
                     if (epsilon < abs(gs%omega(ib, jb, ik))) then
                         gs%d_matrix(ib, jb, 1:3, ik) = &
@@ -203,94 +180,24 @@ contains
     end subroutine create_omega_d
 
     
-    subroutine create_uniform_iktbl_grid()
-        implicit none
-        integer :: ik1, ik2, ik3, ik, icycle
-        ik = 1
-        do ik3=1, nkgrid(3)
-            do ik2=1, nkgrid(2)
-                do ik1=1, nkgrid(1)
-                    gs%iktbl_grid(ik1, ik2, ik3) = ik
-                    ik = ik + 1
-                end do !ik1
-            end do !ik2
-        end do !ik3
-
-        do ik1=1, nkgrid(1)
-            do icycle = -ncycle, ncycle
-                gs%ikcycle_tbl1(ik1 + icycle * nkgrid(1)) = ik1
-            end do
-        end do
-        
-        do ik2=1, nkgrid(2)
-            do icycle = -ncycle, ncycle
-                gs%ikcycle_tbl2(ik2 + icycle * nkgrid(2)) = ik2
-            end do
-        end do
-        
-        do ik3=1, nkgrid(3)
-            do icycle = -ncycle, ncycle
-                gs%ikcycle_tbl3(ik3 + icycle * nkgrid(3)) = ik3
-            end do
-        end do
-    end subroutine create_uniform_iktbl_grid
-
 
 end subroutine init_sbe_gs
 
 
 
-subroutine init_sbe(sbe, gs, nkgrid)
+subroutine init_sbe(sbe, gs)
     implicit none
     type(s_sbe), intent(inout) :: sbe
     type(s_sbe_gs), intent(in) :: gs
-    integer, intent(in) :: nkgrid(1:3)
 
-    integer :: nk, nb
+    sbe%nk = gs%nk
+    sbe%nb = gs%nb
 
-    nk = nkgrid(1) * nkgrid(2) * nkgrid(3)
-    nb = gs%nb
-
-    sbe%nk = nk
-    sbe%nb = nb
-
-    allocate(sbe%rho(1:nb, 1:nb, 1:nk))
-    allocate(sbe%kvec(1:3, 1:nk))
-    allocate(sbe%kweight(1:nk))
+    allocate(sbe%rho(1:sbe%nb, 1:sbe%nb, 1:sbe%nk))
     
     call init_rho()
-    call create_uniform_kgrid()
 
  contains
-
-    subroutine create_uniform_kgrid()
-        implicit none 
-        integer :: ik1, ik2, ik3, ik
-        real(8) :: b1(1:3), b2(1:3), b3(1:3)
-        real(8) :: h1, h2, h3
-        real(8) :: dh(1:3)
-
-        b1(1:3) = gs%b_matrix(1, 1:3)
-        b2(1:3) = gs%b_matrix(2, 1:3)
-        b3(1:3) = gs%b_matrix(3, 1:3)
-        dh(1:3) = 1d0 / nkgrid(1:3)
-
-        ik = 1
-        do ik3=1, nkgrid(3)
-            h3 = dh(3) * (ik3 - 0.5d0) - 0.5d0
-            do ik2=1, nkgrid(2)
-                h2 = dh(2) * (ik2 - 0.5d0) - 0.5d0
-                do ik1=1, nkgrid(1)
-                    h1 = dh(1) * (ik1 - 0.5d0) - 0.5d0
-                    ! Uniformally sampled k-grid point:
-                    sbe%kvec(1:3, ik) = h1 * b1(1:3) + h2 * b2(1:3) + h3 * b3(1:3)
-                    sbe%kweight(ik) = (1d0 / nk)
-                    ik = ik + 1
-                end do
-            end do
-        end do
-    end subroutine
-
 
     subroutine init_rho()
         implicit none
@@ -303,75 +210,6 @@ subroutine init_sbe(sbe, gs, nkgrid)
     end subroutine
 
 end subroutine
-
-
-
-
-subroutine interp_gs(gs, kvec, e_k, d_k, p_k)
-    implicit none
-    type(s_sbe_gs), intent(in) :: gs
-    real(8), intent(in) :: kvec(3)
-    real(8), intent(out), optional :: e_k(gs%nb)
-    complex(8), intent(out), optional :: d_k(gs%nb, gs%nb, 1:3)
-    complex(8), intent(out), optional :: p_k(gs%nb, gs%nb, 1:3)
-    real(8) :: rkg(1:3), wkg(1:2,1:3), wj
-    integer :: ikg(1:2, 1:3), jkg(1:3), j1, j2, j3, jk1, jk2, jk3, jk
-    
-    ! Calculate reduced coordinate of kvec:
-    rkg(1:3) = (matmul(kvec, gs%a_matrix) / (2d0 * pi) + 0.5d0) * gs%nkgrid + 0.5d0
-
-    if (present(e_k)) then
-        ! Grid coordinates and weights for linear interpolation:
-        ikg(1, 1:3) = int(floor(rkg(1:3)))      ! Lower index of data point
-        ikg(2, 1:3) = ikg(1, 1:3) + 1           ! Upper index of data point
-        wkg(2, 1:3) = rkg(1:3) - ikg(1, 1:3)
-        wkg(1, 1:3) = 1d0 - wkg(2, 1:3)
-
-        e_k = 0d0
-
-        do j3 = 1, 2
-            jk3 = gs%ikcycle_tbl3(ikg(j3, 3))
-            do j2 = 1, 2
-                jk2 = gs%ikcycle_tbl2(ikg(j2, 2))
-                do j1 = 1, 2
-                    jk1 = gs%ikcycle_tbl1(ikg(j1, 1))
-                    ! write(*,*) j1, j2, j3, jk1, jk2, jk3, "j"
-                    ! write(*,*) wkg(j1, 1), wkg(j2, 2) , wkg(j3, 3), wkg(j1, 1) * wkg(j2, 2) * wkg(j3, 3), "w"
-                    ! Calculate interpolate coefficients:
-                    jk = gs%iktbl_grid(jk1, jk2, jk3)
-                    wj = wkg(j1, 1) * wkg(j2, 2) * wkg(j3, 3)
-                    ! Interpolate e, d and p at given point:
-                    e_k(:) = e_k(:) + wj * gs%eigen(:, jk)
-                end do
-            end do
-        end do
-    end if
-
-    ! Nearlest grid coordinate
-    jkg(1:3) = int(floor(rkg(1:3) + 0.5d0))    ! Rounded index of data point
-    jk3 = gs%ikcycle_tbl3(jkg(3))
-    jk2 = gs%ikcycle_tbl2(jkg(2))
-    jk1 = gs%ikcycle_tbl1(jkg(1))
-    jk = gs%iktbl_grid(jk1, jk2, jk3)
-    if (present(d_k)) d_k(:, :, :) = gs%d_matrix(:, :, :, jk)
-    if (present(p_k)) p_k(:, :, :) = gs%p_matrix(:, :, :, jk)
-
-    return
-end subroutine interp_gs
-
-
-subroutine band_test(gs)
-    implicit none
-    type(s_sbe_gs), intent(in) :: gs
-    integer :: i
-    real(8) :: k(3), e(gs%nb)
-
-    do i = -100, 100
-        k(:) = (i * 0.01) * gs%b_matrix(1, :)
-        call interp_gs(gs, k, e_k=e)
-        write(*,*) i, e
-    end do
-end subroutine band_test
 
 
 subroutine calc_current_bloch(sbe, gs, Ac, jmat)
@@ -388,11 +226,11 @@ subroutine calc_current_bloch(sbe, gs, Ac, jmat)
 
     !$omp parallel do default(shared) private(ik,ib,jb,idir,pk) reduction(+:jtot)
     do ik=1, sbe%nk
-        call interp_gs(gs, sbe%kvec(1:3, ik) + Ac(1:3), p_k=pk)
+        pk(:, :, :) = gs%p_matrix(:, :, :, ik)
         do idir=1, 3
             do jb=1, sbe%nb
                 do ib=1, sbe%nb
-                    jtot(idir) = jtot(idir) + sbe%kweight(ik) &
+                    jtot(idir) = jtot(idir) + gs%kweight(ik) &
                         & * real(pk(ib, jb, idir) * sbe%rho(jb, ib, ik)) 
                 end do
             end do
@@ -451,8 +289,9 @@ contains
         real(8) :: ek(sbe%nb)
         complex(8) :: pk(sbe%nb, sbe%nb, 3)
         !$omp parallel do default(shared) private(ik,ib,jb,idir,ek,pk)
-        do ik=1, sbe%nk
-            call interp_gs(gs, sbe%kvec(1:3, ik),  e_k=ek, p_k=pk)
+        do ik=1, gs%nk
+            ek(:) = gs%eigen(:, ik)
+            pk(:, :, :) = gs%p_matrix(:, :, :, ik)
             !hrho(k) = omega(k + A/c) * rho(k) 
             do ib = 1, sbe%nb
                 do jb = 1, sbe%nb
@@ -480,9 +319,10 @@ contains
 
 end subroutine
 
-function calc_trace(sbe, nb_max) result(tr)
+function calc_trace(sbe, gs, nb_max) result(tr)
     implicit none
     type(s_sbe), intent(in) :: sbe
+    type(s_sbe_gs), intent(in) :: gs
     integer, intent(in) :: nb_max
     complex(8), parameter :: zi = dcmplx(0d0, 1d0)
     integer :: ik, ib
@@ -491,11 +331,11 @@ function calc_trace(sbe, nb_max) result(tr)
     !$omp parallel do default(shared) private(ik, ib) reduction(+: tr) collapse(2) 
     do ik = 1, sbe%nk
         do ib = 1, nb_max
-            tr = tr + real(sbe%rho(ib, ib, ik)) * sbe%kweight(ik)
+            tr = tr + real(sbe%rho(ib, ib, ik)) * gs%kweight(ik)
         end do
     end do
     !$omp end parallel do
-    tr = tr / sum(sbe%kweight)
+    tr = tr / sum(gs%kweight)
     return 
 end function calc_trace
 

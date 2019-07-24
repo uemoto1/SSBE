@@ -4,17 +4,13 @@ input_parameter = {
     'control': {
         'sysname':      ['character(64)',   [],     "untitled"],
         'directory':    ['character(64)',   [],     "./"],
+        'gs_directory': ['character(64)',   [],     "./"],
     },
     'system': {
         'al_vec1':      ['real(8)',         [3],    0.],
         'al_vec2':      ['real(8)',         [3],    0.],
         'al_vec3':      ['real(8)',         [3],    0.],
-        'nstate':       ['integer',         [],     0],
         'nelec':        ['integer',         [],     0],
-    },
-    'kgrid': {
-        'num_kgrid_gs':     ['integer',     [3],    0],
-        'num_kgrid_sbe':    ['integer',     [3],    0],
     },
     'analysis': {
         'e_min_dielec':     ['real(8)',     [],     0.],

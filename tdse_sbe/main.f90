@@ -10,14 +10,12 @@ program main
     real(8) :: t, E(3), Ac(3), jmat(3)
     integer :: it
 
+    ! Read inputfile
     call read_input()
 
     ! Read ground state electronic system:
-    call init_sbe_gs(gs, sysname, directory, &
-        & num_kgrid_gs, nstate, nelec, &
+    call init_sbe_gs(gs, gs_directory, nelec, &
         & al_vec1, al_vec2, al_vec3)
-    
-    call test_interp(gs); !stop
         
     ! Calculate dielectric spectra and save as SYSNAME_dielec.data:
     if (out_dielec == 'y') then
@@ -26,7 +24,7 @@ program main
     end if
 
     ! Initialization of SBE solver and density matrix:
-    call init_sbe(sbe, gs, num_kgrid_sbe)
+    call init_sbe(sbe, gs)
 
     write(*, '("#",99(1x,a))') "1:Step", "2:Time[au]", "3:Ac_x", "4:Ac_y", "5:Ac_z", &
         & "6:E_x", "7:E_y", "8:E_z", "9:Jmat_x", "10:Jmat_y", "11:Jmat_z", "12:n_v", "13:n_all" 
@@ -45,7 +43,7 @@ program main
                 & Ac, E)
             call calc_current_bloch(sbe, gs, Ac, jmat)
             write(*, '(i6,1x,f9.3,99(1x,es23.15e3))') &
-            & it, t, Ac, E, jmat, calc_trace(sbe, sbe%nb/2), calc_trace(sbe, sbe%nb)
+            & it, t, Ac, E, jmat, calc_trace(sbe, gs, nelec/2), calc_trace(sbe, gs, gs%nb)
         end if
     end do
 
