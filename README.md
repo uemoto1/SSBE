@@ -3,6 +3,9 @@ Experimental Implementation of SALMON's Semiconductor Bloch Equation
 
 ## Structure
 
+### SALMON SBE (SSBE)
+The Houston SBE solver for SALMON program:
+
 ```
 salmon_sbe
 ├── Makefile                GNU makefile for build
@@ -30,3 +33,18 @@ salmon_sbe
 └── SSBE                    Binary
 ```
 
+### TDSE SBE (SSBE)
+The Bloch SBE solver for TDSE program:
+```
+tdse_sbe
+├── ...
+```
+
+### Build
+
+On source code directory (`salmon_sbe/` or `tdse_sbe/`),
+rename the platform-dependent files (`.gnu` or `.intel-knl`) to `Makefile.inc`, and execute `make` command: 
+```
+cp Makefile.inc.YOUR_PLATFORM Makefile.inc
+make
+```
