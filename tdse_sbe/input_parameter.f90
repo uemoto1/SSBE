@@ -64,9 +64,9 @@ contains
         gs_directory = './'
         dt = 0.08
         nt = 5000
-        al_vec3 = 0.0
-        al_vec2 = 0.0
-        al_vec1 = 0.0
+        al_vec3 = (/0.0, 0.0, 0.0/)
+        al_vec2 = (/0.0, 0.0, 0.0/)
+        al_vec1 = (/0.0, 0.0, 0.0/)
         nelec = 0
         out_rt_step = 10
         n_dielec = 1000
@@ -119,4 +119,3 @@ contains
         write(*, '("# epdir_im1 =",99(1x,es12.4e3))') epdir_im1
     end subroutine read_input
 end module input_parameter
-

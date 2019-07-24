@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 
 input_parameter = {
     'control': {
@@ -7,9 +8,9 @@ input_parameter = {
         'gs_directory': ['character(64)',   [],     "./"],
     },
     'system': {
-        'al_vec1':      ['real(8)',         [3],    0.],
-        'al_vec2':      ['real(8)',         [3],    0.],
-        'al_vec3':      ['real(8)',         [3],    0.],
+        'al_vec1':      ['real(8)',         [3],    [0.0, 0.0, 0.0]],
+        'al_vec2':      ['real(8)',         [3],    [0.0, 0.0, 0.0]],
+        'al_vec3':      ['real(8)',         [3],    [0.0, 0.0, 0.0]],
         'nelec':        ['integer',         [],     0],
     },
     'analysis': {
@@ -133,12 +134,26 @@ for group in input_parameter:
             NAME=name, F90FMT=f90fmt(f90type)
         )
         
-            
+title, ext = os.path.splitext(__file__)
+f90file = "%s.f90" % title
+inpfile = "%s.inp" % title
 
-print(template.format(
-    DEF_VARIABLE=indent(def_variable, 4),
-    DEF_NAMELIST=indent(def_namelist, 8),
-    READ_NAMELIST=indent(read_namelist, 8),
-    VARIABLE_DEFAULT=indent(default_variable, 8),
-    VAR_DUMP=indent(var_dump, 8)
-))
+with open(f90file, "w") as fh:
+    fh.write(template.format(
+        DEF_VARIABLE=indent(def_variable, 4),
+        DEF_NAMELIST=indent(def_namelist, 8),
+        READ_NAMELIST=indent(read_namelist, 8),
+        VARIABLE_DEFAULT=indent(default_variable, 8),
+        VAR_DUMP=indent(var_dump, 8)
+    ))
+
+with open(inpfile, "w") as fh:
+    for group in input_parameter:
+        fh.write("&%s\n" % group)
+        for name in input_parameter[group]:
+            f90type, dimlist, default = input_parameter[group][name]
+            fh.write("\t%s = %s\n" % (
+                name, 
+                repr(default).replace("[","").replace("]","")
+            ))
+        fh.write("/\n\n")
