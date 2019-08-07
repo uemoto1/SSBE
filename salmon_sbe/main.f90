@@ -1,11 +1,12 @@
 program main
+    use sbe_gs
     use sbe_solver
     use input_parameter
     use pulse
     use test
     implicit none
 
-    type(s_sbe) :: sbe
+    type(s_sbe_solver) :: sbe
     type(s_sbe_gs) :: gs
     real(8) :: t, E(3), Ac(3), jmat(3)
     integer :: it
@@ -15,7 +16,9 @@ program main
     ! Read ground state electronic system:
     call init_sbe_gs(gs, sysname, directory, &
         & num_kgrid_gs, nstate, nelec, &
-        & al_vec1, al_vec2, al_vec3)
+        & al_vec1, al_vec2, al_vec3, &
+        & (read_sbe_gs_bin .eq. 'y'))
+    write(*,*) gs%nk, gs%nb, gs%ne
     
     call test_interp(gs); !stop
         

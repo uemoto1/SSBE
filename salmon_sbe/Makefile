@@ -10,6 +10,7 @@ parallel/salmon_communication.o \
 parallel/salmon_parallel.o \
 common/structures.o \
 common/pack_unpack.o \
+sbe_gs.o \
 sbe_solver.o \
 pulse.o \
 test.o \

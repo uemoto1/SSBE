@@ -129,4 +129,3 @@ contains
         write(*, '("# num_kgrid_gs =",99(1x,i7))') num_kgrid_gs
     end subroutine read_input
 end module input_parameter
-
