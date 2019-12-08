@@ -5,6 +5,7 @@ module input_parameter
 
     character(64) :: directory
     character(64) :: sysname
+    character(64) :: read_sbe_gs_bin
     real(8) :: dt
     integer :: nt
     real(8) :: epdir_re1(1:3)
@@ -36,7 +37,8 @@ contains
 
         namelist/control/ &
         & directory, &
-        & sysname
+        & sysname, &
+        & read_sbe_gs_bin
         namelist/tgrid/ &
         & dt, &
         & nt
@@ -66,6 +68,7 @@ contains
 
         directory = './'
         sysname = 'untitled'
+        read_sbe_gs_bin = 'n'
         dt = 0.08
         nt = 5000
         epdir_re1 = (/0.0, 0.0, 1.0/)
@@ -106,6 +109,7 @@ contains
 
         write(*, '("# directory =",99(1x,a))') directory
         write(*, '("# sysname =",99(1x,a))') sysname
+        write(*, '("# read_sbe_gs_bin =",99(1x,a))') read_sbe_gs_bin
         write(*, '("# dt =",99(1x,es12.4e3))') dt
         write(*, '("# nt =",99(1x,i7))') nt
         write(*, '("# epdir_re1 =",99(1x,es12.4e3))') epdir_re1

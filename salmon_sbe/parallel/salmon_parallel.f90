@@ -1,5 +1,5 @@
 !
-!  Copyright 2019 SALMON developers
+!  Copyright 2017-2019 SALMON developers
 !
 !  Licensed under the Apache License, Version 2.0 (the "License");
 !  you may not use this file except in compliance with the License.
@@ -26,6 +26,10 @@ module salmon_parallel
   integer, public :: nproc_group_tdks
   integer, public :: nproc_id_tdks
   integer, public :: nproc_size_tdks
+
+  integer, public :: nproc_group_spin
+  integer, public :: nproc_id_spin
+  integer, public :: nproc_size_spin
 
   integer, public :: nproc_group_kgrid
   integer, public :: nproc_id_kgrid
@@ -86,7 +90,6 @@ module salmon_parallel
 
   ! util
   public :: get_thread_id
-  public :: get_nthreads
   public :: is_distributed_parallel
 
 contains
@@ -113,19 +116,6 @@ contains
     nid = omp_get_thread_num()
 #else
     nid = 0
-#endif
-  end function
-
-  function get_nthreads() result(nsize)
-#ifdef _OPENMP
-    use omp_lib
-#endif
-    implicit none
-    integer :: nsize
-#ifdef _OPENMP
-    nsize = omp_get_max_threads()
-#else
-    nsize = 1
 #endif
   end function
 
