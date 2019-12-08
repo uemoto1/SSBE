@@ -1,8 +1,8 @@
+! Ground State Date Storage Module:
+
 module sbe_gs
     use salmon_math, only: pi
     implicit none
-
-    integer, parameter :: ncycle = 2
 
     type s_sbe_gs
         !Lattice information
@@ -24,10 +24,6 @@ module sbe_gs
         !k-space grid and geometry information
         !NOTE: prepred for uniformally distributed k-grid....
         integer :: nkgrid(1:3)
-        integer, allocatable :: iktbl_grid(:, :, :)
-        integer, allocatable :: ikcycle_tbl1(:)
-        integer, allocatable :: ikcycle_tbl2(:)
-        integer, allocatable :: ikcycle_tbl3(:)
     end type
 
 
@@ -66,10 +62,6 @@ subroutine init_sbe_gs(gs, sysname, directory, nkgrid, nb, ne, a1, a2, a3, read_
     allocate(gs%d_matrix(1:nb, 1:nb, 1:3, 1:nk))
     allocate(gs%rv_matrix(1:nb, 1:nb, 1:nk))
     allocate(gs%prod_dk(1:nb, 1:nb, -1:1, -1:1, -1:1, 1:nk))
-    allocate(gs%iktbl_grid(1:nkgrid(1),1:nkgrid(2),1:nkgrid(3)))
-    allocate(gs%ikcycle_tbl1(1-nkgrid(1)*ncycle:nkgrid(1)*(ncycle+1)))
-    allocate(gs%ikcycle_tbl2(1-nkgrid(2)*ncycle:nkgrid(2)*(ncycle+1)))
-    allocate(gs%ikcycle_tbl3(1-nkgrid(3)*ncycle:nkgrid(3)*(ncycle+1)))
 
     if (read_bin) then
         !Retrieve all data from binray
@@ -292,44 +284,7 @@ contains
     end subroutine create_omega_d
 
     
-    subroutine create_uniform_iktbl_grid()
-        implicit none
-        integer :: ik1, ik2, ik3, ik, icycle
-        ik = 1
-        do ik3=1, nkgrid(3)
-            do ik2=1, nkgrid(2)
-                do ik1=1, nkgrid(1)
-                    gs%iktbl_grid(ik1, ik2, ik3) = ik
-                    ik = ik + 1
-                end do !ik1
-            end do !ik2
-        end do !ik3
-
-        do ik1=1, nkgrid(1)
-            do icycle = -ncycle, ncycle
-                gs%ikcycle_tbl1(ik1 + icycle * nkgrid(1)) = ik1
-            end do
-        end do
-        
-        do ik2=1, nkgrid(2)
-            do icycle = -ncycle, ncycle
-                gs%ikcycle_tbl2(ik2 + icycle * nkgrid(2)) = ik2
-            end do
-        end do
-        
-        do ik3=1, nkgrid(3)
-            do icycle = -ncycle, ncycle
-                gs%ikcycle_tbl3(ik3 + icycle * nkgrid(3)) = ik3
-            end do
-        end do
-    end subroutine create_uniform_iktbl_grid
-
-
 end subroutine init_sbe_gs
-
-
-
-
 
 end module sbe_gs
 
